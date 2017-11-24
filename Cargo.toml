@@ -1,0 +1,13 @@
+[package]
+name = "cervisia-server"
+version = "0.1.0"
+authors = ["nephtys <christopher.kaag@gmail.com>"]
+
+[dependencies]
+iron = "*"
+rustix-bl = "*"
+time = "*"
+staticfile = "*"
+simple_logger = "0.4.0"
+mount = "0.4.0"
+log = "0.3"
