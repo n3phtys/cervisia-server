@@ -6,6 +6,13 @@ extern crate rustix_bl;
 extern crate log;
 extern crate simple_logger;
 extern crate mount;
+extern crate lettre;
+extern crate notify;
+extern crate config;
+extern crate toml;
+#[macro_use]
+extern crate serde_derive;
+
 
 
 use iron::prelude::*;
@@ -17,8 +24,16 @@ use iron::Iron;
 use staticfile::Static;
 use mount::Mount;
 
+pub mod mail;
 
-struct ResponseTime;
+pub mod configuration;
+
+pub mod manager;
+
+pub mod server;
+
+
+pub struct ResponseTime;
 
 impl typemap::Key for ResponseTime { type Value = u64; }
 
@@ -37,7 +52,7 @@ impl AfterMiddleware for ResponseTime {
     }
 }
 
-fn hello_world(_: &mut Request) -> IronResult<Response> {
+pub fn hello_world(_: &mut Request) -> IronResult<Response> {
     Ok(Response::with((iron::status::Ok, "Hello World")))
 }
 
@@ -45,7 +60,11 @@ fn timer_server() {
     let mut chain = Chain::new(hello_world);
     chain.link_before(ResponseTime);
     chain.link_after(ResponseTime);
-    Iron::new(chain).http("localhost:8080").unwrap();
+    println!("Iron Builder Thread starts here");
+    let mut serv = Iron::new(chain).http("localhost:8080").unwrap();
+
+    println!("Iron Builder Thread now here");
+    serv.close();
 }
 
 
@@ -57,6 +76,10 @@ fn main() {
     info!("Logging example message to info");
     timer_server();
 }
+
+
+
+
 
 
 

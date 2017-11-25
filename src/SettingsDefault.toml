@@ -1,0 +1,6 @@
+use_send_mail = true
+email_server = ""
+email_username = ""
+email_password = ""
+top_items_per_user = 4
+server_port = 8080
