@@ -22,6 +22,10 @@ use std::path::Path;
 
 use iron::Iron;
 use staticfile::Static;
+use server::*;
+use manager::*;
+use configuration::*;
+use mail::*;
 use mount::Mount;
 
 pub mod mail;
@@ -68,9 +72,15 @@ fn timer_server() {
 }
 
 
-
-
 fn main() {
+    let logger = simple_logger::init().unwrap();
+
+    let path = path_to_config_file_and_mkdirs();
+    watch_config_changes(&path, execute_cervisia_server);
+}
+
+
+fn old_main() {
     simple_logger::init().unwrap();
     println!("Hello, world!");
     info!("Logging example message to info");

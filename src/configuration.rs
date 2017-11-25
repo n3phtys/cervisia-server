@@ -16,13 +16,13 @@ use std::io;
 
 #[derive(Debug, Deserialize)]
 pub struct ServerConfig {
-    use_send_mail: bool,
-    email_server: String,
-    email_username: String,
-    email_password: String,
-    top_items_per_user: u16,
+    pub use_send_mail: bool,
+    pub email_server: String,
+    pub email_username: String,
+    pub email_password: String,
+    pub top_items_per_user: u16,
     //default = 4
-    server_port: u16,
+    pub server_port: u16,
     //default = 8080
 }
 
@@ -42,9 +42,11 @@ impl Loadable for ServerConfig {
 }
 
 
-fn path_to_config_file_and_mkdirs() -> std::path::PathBuf {
+pub fn path_to_config_file_and_mkdirs() -> std::path::PathBuf {
     let mut path = std::env::home_dir().unwrap();
     path.push(".cervisia-server");
+
+    println!("A2");
 
     {
         let path = path.clone();
@@ -81,6 +83,8 @@ fn assert_default_settings_parse() -> bool {
 pub fn watch_config_changes<F>(path_to_config_file: &std::path::PathBuf, function_to_execute: F) -> ()
     where F: Fn(&ServerConfig, Option<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>>, Option<iron::Listening>) -> (rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>, iron::Listening) {
 
+
+    println!("Here");
     //assert that default is right
     if !assert_default_settings_parse() {
         panic!("SettingsDefault.toml is not parsing!");
@@ -88,6 +92,7 @@ pub fn watch_config_changes<F>(path_to_config_file: &std::path::PathBuf, functio
 
 
 
+    println!("There");
     // Create a channel to receive the events.
     let (tx, rx) = channel();
 
@@ -95,20 +100,28 @@ pub fn watch_config_changes<F>(path_to_config_file: &std::path::PathBuf, functio
     // You can also access each implementation directly e.g. INotifyWatcher.
     let mut watcher: RecommendedWatcher = Watcher::new(tx, Duration::from_secs(2)).unwrap();
 
+
+    debug!("Spawned watcher");
+
+
+    println!("Also here");
+
     // Add a path to be watched. All files and directories at that path and
     // below will be monitored for changes.
 
     let mut old_server: Option<iron::Listening> = None;
     let mut old_backend: Option<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>> = None;
 
-    let config = ServerConfig {
-        use_send_mail: false,
-        email_server: "".to_string(),
-        email_username: "".to_string(),
-        email_password: "".to_string(),
-        top_items_per_user: 4,
-        server_port: 8080,
-    };
+
+    let config_result = ServerConfig::from_path(path_to_config_file);
+
+    if let Ok(config) = config_result {
+        let (b, s) = function_to_execute(&config, old_backend, old_server);
+        old_server = Some(s);
+        old_backend = Some(b);
+    } else {
+        println!("Error during Config parsing: {:?}", config_result);
+    }
 
 
     watcher
@@ -118,6 +131,9 @@ pub fn watch_config_changes<F>(path_to_config_file: &std::path::PathBuf, functio
     // This is a simple loop, but you may want to use more complex logic here,
     // for example to handle I/O.
     loop {
+
+        debug!("Loop");
+
         match rx.recv() {
             Ok(DebouncedEvent::Write(_)) => {
                 println!(" * Settings.toml changed; refreshing configuration ...");
