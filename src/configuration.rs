@@ -81,7 +81,7 @@ fn assert_default_settings_parse() -> bool {
 }
 
 pub fn watch_config_changes<F>(path_to_config_file: &std::path::PathBuf, function_to_execute: F) -> ()
-    where F: Fn(&ServerConfig, Option<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>>, Option<iron::Listening>) -> (rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>, iron::Listening) {
+    where F: Fn(&ServerConfig, Option<RwLock<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>>>, Option<iron::Listening>) -> (RwLock<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>>, iron::Listening) {
 
 
     println!("Here");
@@ -110,7 +110,7 @@ pub fn watch_config_changes<F>(path_to_config_file: &std::path::PathBuf, functio
     // below will be monitored for changes.
 
     let mut old_server: Option<iron::Listening> = None;
-    let mut old_backend: Option<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>> = None;
+    let mut old_backend: Option<RwLock<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>>> = None;
 
 
     let config_result = ServerConfig::from_path(path_to_config_file);
