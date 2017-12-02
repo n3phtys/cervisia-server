@@ -68,6 +68,19 @@ pub mod responsehandlers {
     use super::*;
     use manager::*;
 
+
+
+    fn extract_query(req: &mut iron::request::Request) -> Option<String> {
+        let map = req.get_ref::<Params>().unwrap();
+        return match map.find(&["query"]) {
+            Some(&Value::String(ref json)) => {
+                return Some(json.to_string());
+            },
+            _ => None
+        }
+    }
+
+
     pub fn all_users(backend : &RwLock<Backend>, req: &mut iron::request::Request) -> IronResult<Response> {
 
         let map = req.get_ref::<Params>().unwrap();

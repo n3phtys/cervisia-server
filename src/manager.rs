@@ -5,26 +5,55 @@ use std::vec::*;
 use std::collections::*;
 
 
-#[derive(Serialize, Deserialize)]
-pub struct ParametersAll {
-    pub top_users : ParametersTopUsers,
-    pub all_users : ParametersAllUsers,
-    pub all_items : ParametersAllItems,
-    pub global_log : ParametersPurchaseLogGlobal,
-    pub bills : ParametersBills,
-    pub open_ffa_freebies : ParametersOpenFFAFreebies,
-    pub top_personal_drinks : ParametersTopPersonalDrinks,
-    pub personal_log : ParametersPurchaseLogPersonal,
-    pub incoming_freebies : ParametersIncomingFreebies,
-    pub outgoing_freebies : ParametersOutgoingFreebies,
-    pub personal_detail_infos : ParametersDetailInfoForUser,
-}
+
+type Backend = rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>;
+
 
 #[derive(Serialize, Deserialize)]
 pub struct ParametersPagination {
     pub start_inclusive: u32,
     pub end_exclusive: u32,
 }
+
+
+#[derive(Serialize, Deserialize)]
+pub enum ReadQueryParams {
+    DetailInfoForUser(ParametersDetailInfoForUser),
+    TopUsers(ParametersTopUsers),
+    AllUsersCount(ParametersAllUsersCount),
+    AllUsers(ParametersAllUsers),
+    AllItemsCount(ParametersAllItemsCount),
+    AllItems(ParametersAllItems),
+    PurchaseLogGlobalCount(ParametersPurchaseLogGlobalCount),
+    PurchaseLogGlobal(ParametersPurchaseLogGlobal),
+    BillsCount(ParametersBillsCount),
+    Bills(ParametersBills),
+    OpenFFAFreebies(ParametersOpenFFAFreebies),
+    TopPersonalDrinks(ParametersTopPersonalDrinks),
+    PurchaseLogPersonalCount(ParametersPurchaseLogPersonalCount),
+    PurchaseLogPersonal(ParametersPurchaseLogPersonal),
+    IncomingFreebiesCount(ParametersIncomingFreebiesCount),
+    IncomingFreebies(ParametersIncomingFreebies),
+    OutgoingFreebiesCount(ParametersOutgoingFreebiesCount),
+    OutgoingFreebies(ParametersOutgoingFreebies),
+}
+
+
+#[derive(Serialize, Deserialize)]
+pub struct ParametersAll {
+    pub top_users: ParametersTopUsers,
+    pub all_users: ParametersAllUsers,
+    pub all_items: ParametersAllItems,
+    pub global_log: ParametersPurchaseLogGlobal,
+    pub bills: ParametersBills,
+    pub open_ffa_freebies: ParametersOpenFFAFreebies,
+    pub top_personal_drinks: ParametersTopPersonalDrinks,
+    pub personal_log: ParametersPurchaseLogPersonal,
+    pub incoming_freebies: ParametersIncomingFreebies,
+    pub outgoing_freebies: ParametersOutgoingFreebies,
+    pub personal_detail_infos: ParametersDetailInfoForUser,
+}
+
 
 #[derive(Serialize, Deserialize)]
 pub struct ParametersTopUsers {
@@ -193,6 +222,22 @@ pub trait RustixSupport {
     fn send_bill_via_mail();
     fn send_personal_statistic_via_mail();
 }
+
+
+
+//TODO: implement this / improve signature before implementing
+pub trait ServableRustix {
+    /**
+    returns json array or number
+    */
+    fn query_read(backend: &Backend, query: ReadQueryParams) -> Result<String, Box<::std::error::Error>>;
+
+    /**
+    returns json array or number, exactly what is to be updated (using query_read() to compute new values)
+    */
+    fn check_apply_write(backend: &mut Backend, app_state: ParametersAll) -> Result<String, Box<::std::error::Error>>;
+}
+
 
 
 
