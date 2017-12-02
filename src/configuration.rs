@@ -27,6 +27,20 @@ pub struct ServerConfig {
 }
 
 
+impl Default for ServerConfig {
+    fn default() -> Self {
+        return ServerConfig {
+            use_send_mail: false,
+            email_server: String::new(),
+            email_username: String::new(),
+            email_password: String::new(),
+            top_items_per_user: 4,
+            server_port: 8081,
+        };
+    }
+}
+
+
 trait Loadable  where Self: std::marker::Sized{
     fn from_path(path: &std::path::PathBuf) -> Result<Self, io::Error>;
 }

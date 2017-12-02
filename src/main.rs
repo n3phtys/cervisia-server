@@ -1,3 +1,5 @@
+#![feature(const_fn)]
+
 extern crate iron;
 extern crate staticfile;
 extern crate time;
@@ -13,21 +15,22 @@ extern crate toml;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
+extern crate reqwest;
 
 
 
 use iron::prelude::*;
 use iron::{BeforeMiddleware, AfterMiddleware, typemap};
 use time::precise_time_ns;
-use std::path::Path;
+//use std::path::Path;
 
 use iron::Iron;
-use staticfile::Static;
+//use staticfile::Static;
 use server::*;
-use manager::*;
+//use manager::*;
 use configuration::*;
-use mail::*;
-use mount::Mount;
+//use mail::*;
+//use mount::Mount;
 
 pub mod mail;
 
@@ -61,7 +64,7 @@ pub fn hello_world(_: &mut Request) -> IronResult<Response> {
     Ok(Response::with((iron::status::Ok, "Hello World")))
 }
 
-fn timer_server() {
+/*fn timer_server() -> () {
     let mut chain = Chain::new(hello_world);
     chain.link_before(ResponseTime);
     chain.link_after(ResponseTime);
@@ -69,8 +72,8 @@ fn timer_server() {
     let mut serv = Iron::new(chain).http("localhost:8080").unwrap();
 
     println!("Iron Builder Thread now here");
-    serv.close();
-}
+    let _ = serv.close();
+}*/
 
 
 fn main() {
@@ -81,12 +84,12 @@ fn main() {
 }
 
 
-fn old_main() {
+/*fn old_main() {
     simple_logger::init().unwrap();
     println!("Hello, world!");
     info!("Logging example message to info");
     timer_server();
-}
+}*/
 
 
 

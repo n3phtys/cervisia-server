@@ -1,4 +1,4 @@
-use std::env::temp_dir;
+//use std::env::temp_dir;
 
 use lettre::file::FileEmailTransport;
 use lettre::{SimpleSendableEmail, EmailTransport, EmailAddress};

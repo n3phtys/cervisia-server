@@ -19,6 +19,8 @@ use std;
 use rustix_bl::rustix_event_shop;
 use std::sync::RwLock;
 use manager::ParametersAll;
+use reqwest;
+use std::io::Read;
 
 
 pub fn build_server(port: u16) -> iron::Listening {
@@ -109,5 +111,104 @@ fn apply_write(backend : &mut rustix_bl::rustix_backend::RustixBackend<rustix_bl
                 content: None,
             },
         };
+    }
+}
+
+
+
+
+pub fn blocking_http_get_call(url: &str) -> Result<String, reqwest::Error> {
+
+    let mut res = reqwest::get(url)?;
+
+    println!("Status: {}", res.status());
+    println!("Headers:\n{}", res.headers());
+
+    let mut s : String = "".to_string();
+    let size = res.read_to_string(&mut s);
+
+    println!("Body:\n{}", s);
+
+    println!("\n\nDone.");
+    return Ok(s);
+}
+
+
+
+
+
+#[cfg(test)]
+mod tests {
+
+    use iron::Iron;
+    use staticfile::Static;
+    use mount::Mount;
+    use hello_world;
+    use ResponseTime;
+    use configuration::*;
+    use iron;
+    use rustix_bl;
+    use serde_json;
+    use std;
+    use rustix_bl::rustix_event_shop;
+    use std::sync::RwLock;
+    use manager::ParametersAll;
+    use reqwest;
+    use std::io::Read;
+    use server::*;
+
+
+    const HOST_PLUS_PORT : &'static str = "http://localhost:8081";
+
+    fn get_server_config() -> ServerConfig {
+
+        let port_str : String = HOST_PLUS_PORT.chars().skip("http://localhost:".len()).collect();
+        return ServerConfig {
+
+        use_send_mail: false,
+        email_server: String::new(),
+        email_username: String::new(),
+        email_password: String::new(),
+        top_items_per_user: 4,
+        server_port: port_str.parse::<u16>().unwrap(),
+    };}
+
+    fn build_default_server() -> (RwLock<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>>, iron::Listening) {
+        let default_server_conf = get_server_config();
+        return execute_cervisia_server(&default_server_conf, None, None);
+    }
+
+
+    #[test]
+    fn it_works() {
+        assert!(1+1 == 2);
+    }
+
+    #[test]
+    fn hello_world_works() {
+
+        let (backend, server) = build_default_server();
+
+        let httpbody = blocking_http_get_call(HOST_PLUS_PORT).unwrap();
+
+        let mut server = server;
+        server.close().unwrap();
+
+        assert_eq!(httpbody, "Hello World");
+
+    }
+
+    #[test]
+    fn second_hello_world_works() {
+
+        let (backend, server) = build_default_server();
+
+        let httpbody = blocking_http_get_call(HOST_PLUS_PORT).unwrap();
+
+        let mut server = server;
+        server.close().unwrap();
+
+        assert_eq!(httpbody, "Hello World");
+
     }
 }
