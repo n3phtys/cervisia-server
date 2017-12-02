@@ -28,7 +28,9 @@ use iron::prelude::*;
 use iron::status;
 use router::Router;
 use responsehandlers::*;
+use params;
 
+use params::{Params, Value};
 
 type Backend = rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>;
 
@@ -64,17 +66,55 @@ pub fn build_server(backend : Arc<RwLock<Backend>>, port: u16) -> iron::Listenin
 
 pub mod responsehandlers {
     use super::*;
+    use manager::*;
 
     pub fn all_users(backend : &RwLock<Backend>, req: &mut iron::request::Request) -> IronResult<Response> {
-        let dat = backend.read().unwrap();
 
-        let mut v = Vec::new();
+        let map = req.get_ref::<Params>().unwrap();
 
-        for (key,val) in &(*dat).datastore.users {
-            v.push(val);
+        match map.find(&["query"]) {
+            Some(&Value::String(ref json)) => {
+
+                let dat = backend.read().unwrap();
+
+                let param : ParametersAllUsers = serde_json::from_str(json).unwrap();
+
+
+                let mut v : Vec<rustix_bl::datastore::User> = Vec::new();
+                let mut total = 0u32; //TODO: implement correctly in manager
+
+
+                let hm = &dat.datastore.users;
+
+                for (id, user) in &(*dat).datastore.users {
+                    //if user.username.contains(param.count_pars.searchterm) {
+                        total += 1;
+                        v.push(user.clone());
+                    //}
+                }
+
+
+                let result : PaginatedResult<rustix_bl::datastore::User> = PaginatedResult {
+                    total_count: total,
+                    from: param.pagination.start_inclusive,
+                    to: param.pagination.end_exclusive,
+                    results: v,
+                };
+
+
+                let json = serde_json::to_string(&result).unwrap();
+
+
+
+
+
+
+                Ok(Response::with((iron::status::Ok, json)))
+            },
+            _ => Ok(Response::with(iron::status::BadRequest)),
         }
-        let json = serde_json::to_string(&v).unwrap();
-        Ok(Response::with((iron::status::Ok, json)))
+
+
     }
 
     pub fn top_users(backend : &RwLock<Backend>, req: &mut iron::request::Request) -> IronResult<Response> {
@@ -130,6 +170,16 @@ pub struct SuccessContent {
     pub timestamp : u64,
     pub refreshed_data : HashMap<String, serde_json::Value>,
 }
+
+
+#[derive(Serialize, Deserialize)]
+pub struct PaginatedResult<T> {
+    total_count : u32,
+    from : u32,
+    to : u32,
+    results : Vec<T>,
+}
+
 
 pub trait RefreshStateExt {
     fn from_request() -> Self;
@@ -325,9 +375,9 @@ mod tests {
         server.close().unwrap();
 
 
-        let parsedjson : Vec<rustix_bl::datastore::User> = serde_json::from_str(&httpbody).unwrap();
+        let parsedjson : PaginatedResult<rustix_bl::datastore::User> = serde_json::from_str(&httpbody).unwrap();
 
-        assert_eq!(parsedjson.len(), 53);
+        assert_eq!(parsedjson.results.len(), 53);
 
     }
 }

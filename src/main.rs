@@ -19,6 +19,7 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate reqwest;
 extern crate rand;
+extern crate params;
 extern crate router;
 
 
