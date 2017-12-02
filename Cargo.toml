@@ -24,5 +24,6 @@ rand = "*"
 router = "0.5"
 lazy_static = "*"
 params = "*"
+persistent = "*"
 
 

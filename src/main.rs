@@ -21,6 +21,7 @@ extern crate reqwest;
 extern crate rand;
 extern crate params;
 extern crate router;
+extern crate persistent;
 
 
 use iron::prelude::*;
@@ -94,14 +95,6 @@ fn main() {
     info!("Logging example message to info");
     timer_server();
 }*/
-
-
-
-
-
-
-
-
 
 
 //

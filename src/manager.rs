@@ -5,7 +5,6 @@ use std::vec::*;
 use std::collections::*;
 
 
-
 type Backend = rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>;
 
 
@@ -58,7 +57,7 @@ pub struct ParametersAll {
 #[derive(Serialize, Deserialize)]
 pub struct ParametersTopUsers {
     searchterm: String,
-    n : u16,
+    n: u16,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -68,8 +67,8 @@ pub struct ParametersAllUsersCount {
 
 #[derive(Serialize, Deserialize)]
 pub struct ParametersAllUsers {
-    pub count_pars : ParametersAllUsersCount,
-    pub pagination : ParametersPagination,
+    pub count_pars: ParametersAllUsersCount,
+    pub pagination: ParametersPagination,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -79,8 +78,8 @@ pub struct ParametersAllItemsCount {
 
 #[derive(Serialize, Deserialize)]
 pub struct ParametersAllItems {
-    pub count_pars : ParametersAllItemsCount,
-    pub pagination : ParametersPagination,
+    pub count_pars: ParametersAllItemsCount,
+    pub pagination: ParametersPagination,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -90,9 +89,9 @@ pub struct ParametersPurchaseLogGlobalCount {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct ParametersPurchaseLogGlobal{
-    pub count_pars : ParametersPurchaseLogGlobalCount,
-    pub pagination : ParametersPagination,
+pub struct ParametersPurchaseLogGlobal {
+    pub count_pars: ParametersPurchaseLogGlobalCount,
+    pub pagination: ParametersPagination,
 
 }
 
@@ -101,12 +100,11 @@ pub struct ParametersPurchaseLogGlobal{
 pub struct ParametersBillsCount {}
 
 #[derive(Serialize, Deserialize)]
-pub struct ParametersBills{
-    pub count_pars : ParametersBillsCount,
-    pub pagination : ParametersPagination,
+pub struct ParametersBills {
+    pub count_pars: ParametersBillsCount,
+    pub pagination: ParametersPagination,
 
 }
-
 
 
 #[derive(Serialize, Deserialize)]
@@ -116,7 +114,7 @@ pub struct ParametersOpenFFAFreebies {
 
 #[derive(Serialize, Deserialize)]
 pub struct ParametersTopPersonalDrinks {
-    n : u8,
+    n: u8,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -128,8 +126,8 @@ pub struct ParametersPurchaseLogPersonalCount {
 
 #[derive(Serialize, Deserialize)]
 pub struct ParametersPurchaseLogPersonal {
-    pub count_pars : ParametersPurchaseLogPersonalCount,
-    pub pagination : ParametersPagination,
+    pub count_pars: ParametersPurchaseLogPersonalCount,
+    pub pagination: ParametersPagination,
 
 }
 
@@ -160,34 +158,34 @@ pub struct ParametersDetailInfoForUser {
 
 
 pub trait RustixReadsGlobal {
-    fn top_users(par : &ParametersTopUsers) -> Vec<User>;
-    fn all_users_count(par : &ParametersAllUsersCount) -> u32;
-    fn all_users(par : &ParametersAllUsers) -> Vec<User>;
+    fn top_users(par: &ParametersTopUsers) -> Vec<User>;
+    fn all_users_count(par: &ParametersAllUsersCount) -> u32;
+    fn all_users(par: &ParametersAllUsers) -> Vec<User>;
 
-    fn all_items_count(par : &ParametersAllItemsCount) -> u32;
-    fn all_items(par : &ParametersAllItems) -> Vec<Item>;
+    fn all_items_count(par: &ParametersAllItemsCount) -> u32;
+    fn all_items(par: &ParametersAllItems) -> Vec<Item>;
 
-    fn all_bills_count(par : &ParametersBillsCount) -> u32;
-    fn all_bills(par : &ParametersBills) -> u32;
+    fn all_bills_count(par: &ParametersBillsCount) -> u32;
+    fn all_bills(par: &ParametersBills) -> u32;
 
 
-    fn purchase_log_global_count(par : &ParametersPurchaseLogGlobalCount) -> u32;
-    fn purchase_log_global(par : &ParametersPurchaseLogGlobal) -> Vec<Purchase>;
+    fn purchase_log_global_count(par: &ParametersPurchaseLogGlobalCount) -> u32;
+    fn purchase_log_global(par: &ParametersPurchaseLogGlobal) -> Vec<Purchase>;
 
     //fn open_ffa_items(par : &ParametersAllUsers) -> Vec<Freeby>; //TODO: not implemented in rustix yet
 }
 
 pub trait RustixReadsPersonal {
-    fn top_drinks_per_user(par : &ParametersTopPersonalDrinks) -> HashMap<u64, Item>;
-    fn purchase_log_personal_count(par : &ParametersPurchaseLogPersonalCount) -> u32;
-    fn purchase_log_personal(par : &ParametersPurchaseLogPersonal) -> Vec<Purchase>;
+    fn top_drinks_per_user(par: &ParametersTopPersonalDrinks) -> HashMap<u64, Item>;
+    fn purchase_log_personal_count(par: &ParametersPurchaseLogPersonalCount) -> u32;
+    fn purchase_log_personal(par: &ParametersPurchaseLogPersonal) -> Vec<Purchase>;
 
     //fn freebies_incoming_count(par : &ParametersAllUsers) -> Vec<Freeby>; //TODO: not implemented in rustix yet
     //fn freebies_incoming(par : &ParametersAllUsers) -> Vec<Freeby>; //TODO: not implemented in rustix yet
     //fn freebies_outgoing_count(par : &ParametersAllUsers) -> Vec<Freeby>; //TODO: not implemented in rustix yet
     //fn freebies_outgoing(par : &ParametersAllUsers) -> Vec<Freeby>; //TODO: not implemented in rustix yet
 
-    fn detail_info_for_user(par : &ParametersDetailInfoForUser) -> UserDetailInfo;
+    fn detail_info_for_user(par: &ParametersDetailInfoForUser) -> UserDetailInfo;
 }
 
 #[derive(Serialize, Deserialize)]
@@ -224,7 +222,6 @@ pub trait RustixSupport {
 }
 
 
-
 //TODO: implement this / improve signature before implementing
 pub trait ServableRustix {
     /**
@@ -239,11 +236,8 @@ pub trait ServableRustix {
 }
 
 
-
-
 #[cfg(test)]
 pub mod tests {
-
     use serde_json;
     use std;
     use rustix_bl;
@@ -252,9 +246,12 @@ pub mod tests {
     use manager::ParametersAll;
     use rand::{Rng, SeedableRng, StdRng};
     use rustix_bl::rustix_backend::*;
+    use server::Backend;
 
-    pub fn fill_backend_with_medium_test_data(backend : &RwLock<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>>) -> () {
-        let mut back = backend.write().unwrap();
+    pub fn fill_not(backend: &mut Backend) -> () {}
+
+    pub fn fill_backend_with_medium_test_data(backend: &mut Backend) -> () {
+        let mut back = backend;
 
         (*back).create_user("Gruin".to_string());
         (*back).create_user("Vall".to_string());
@@ -292,5 +289,4 @@ pub mod tests {
             }
         }
     }
-
 }

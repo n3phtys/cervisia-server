@@ -1,4 +1,3 @@
-
 use iron::prelude::*;
 use iron::{BeforeMiddleware, AfterMiddleware, typemap};
 use time::precise_time_ns;
@@ -29,33 +28,46 @@ use iron::status;
 use router::Router;
 use responsehandlers::*;
 use params;
+use persistent;
+use persistent::State;
+use iron::typemap::Key;
 
 use params::{Params, Value};
 
-type Backend = rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>;
+pub type Backend = rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>;
+
+#[derive(Copy, Clone)]
+pub struct SharedBackend;
+
+impl Key for SharedBackend {
+    type Value = Backend;
+}
 
 
-
-pub fn build_server(backend : Arc<RwLock<Backend>>, port: u16) -> iron::Listening {
+pub fn build_server(port: u16, backend: Option<Backend>) -> iron::Listening {
     let mut router = Router::new();
 
-    let back2 = backend.clone();
 
-    router.get("/users/all", move |req: &mut Request|{all_users(&back2, req)}, "alluser");
+    router.get("/users/all", move |req: &mut Request| { all_users(req) }, "alluser");
 
-    router.get("/helloworld",  |req: &mut Request|hello_world(req), "helloworld");
-
+    router.get("/helloworld", |req: &mut Request| hello_world(req), "helloworld");
 
 
-      let mut mount = Mount::new();
+    let mut mount = Mount::new();
 
     {
+        let mut chain = Chain::new(router);
+
+        let backend = backend.unwrap_or(rustix_bl::build_transient_backend());
+        let state = State::<SharedBackend>::both(backend);
+
+        chain.link(state);
+
         let _ = mount
-            .mount("/api/", router)
+            .mount("/api/", chain)
             .mount("/", Static::new(Path::new("web/")))
         ;
     }
-
 
 
     let mut serv = Iron::new(mount).http(format!("localhost:{}", port)).unwrap();
@@ -63,11 +75,9 @@ pub fn build_server(backend : Arc<RwLock<Backend>>, port: u16) -> iron::Listenin
 }
 
 
-
 pub mod responsehandlers {
     use super::*;
     use manager::*;
-
 
 
     fn extract_query(req: &mut iron::request::Request) -> Option<String> {
@@ -75,25 +85,23 @@ pub mod responsehandlers {
         return match map.find(&["query"]) {
             Some(&Value::String(ref json)) => {
                 return Some(json.to_string());
-            },
+            }
             _ => None
-        }
+        };
     }
 
 
-    pub fn all_users(backend : &RwLock<Backend>, req: &mut iron::request::Request) -> IronResult<Response> {
+    pub fn all_users(req: &mut iron::request::Request) -> IronResult<Response> {
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let dat = datholder.read().unwrap();
+        let query_str = extract_query(req);
 
-        let map = req.get_ref::<Params>().unwrap();
-
-        match map.find(&["query"]) {
-            Some(&Value::String(ref json)) => {
-
-                let dat = backend.read().unwrap();
-
-                let param : ParametersAllUsers = serde_json::from_str(json).unwrap();
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAllUsers = serde_json::from_str(&json_query).unwrap();
 
 
-                let mut v : Vec<rustix_bl::datastore::User> = Vec::new();
+                let mut v: Vec<rustix_bl::datastore::User> = Vec::new();
                 let mut total = 0u32; //TODO: implement correctly in manager
 
 
@@ -101,13 +109,13 @@ pub mod responsehandlers {
 
                 for (id, user) in &(*dat).datastore.users {
                     //if user.username.contains(param.count_pars.searchterm) {
-                        total += 1;
-                        v.push(user.clone());
+                    total += 1;
+                    v.push(user.clone());
                     //}
                 }
 
 
-                let result : PaginatedResult<rustix_bl::datastore::User> = PaginatedResult {
+                let result: PaginatedResult<rustix_bl::datastore::User> = PaginatedResult {
                     total_count: total,
                     from: param.pagination.start_inclusive,
                     to: param.pagination.end_exclusive,
@@ -118,28 +126,20 @@ pub mod responsehandlers {
                 let json = serde_json::to_string(&result).unwrap();
 
 
-
-
-
-
-                Ok(Response::with((iron::status::Ok, json)))
-            },
-            _ => Ok(Response::with(iron::status::BadRequest)),
-        }
-
-
+                return Ok(Response::with((iron::status::Ok, json)));
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
     }
 
-    pub fn top_users(backend : &RwLock<Backend>, req: &mut iron::request::Request) -> IronResult<Response> {
+    pub fn top_users(backend: &RwLock<Backend>, req: &mut iron::request::Request) -> IronResult<Response> {
         Ok(Response::with((iron::status::Ok, "Hello World")))
     }
 }
 
 
 pub fn execute_cervisia_server(with_config: &ServerConfig,
-                               old_backend : Option<Arc<RwLock<Backend>>>,
-                               old_server : Option<iron::Listening>) -> (Arc<RwLock<Backend>>, iron::Listening) {
-
+                               old_server: Option<iron::Listening>, backend: Option<Backend>) -> (iron::Listening) {
     info!("execute_cervisia_server begins for config = {:?}", with_config);
 
     if old_server.is_some() {
@@ -147,50 +147,37 @@ pub fn execute_cervisia_server(with_config: &ServerConfig,
         //TODO: does not work, see https://github.com/hyperium/hyper/issues/338
         old_server.unwrap().close().unwrap();
     };
-    if old_backend.is_some() {
-        info!("Closing old backend");
-        let backe = old_backend.unwrap();
-        //TODO: shutdown of old backend?
-        println!("Shut down old backend {:?}", backe);
-    };
-
-
-    info!("Building backend");
-
-    let mut backend = Arc::new(RwLock::new(rustix_bl::build_transient_backend()));
 
 
     info!("Building server");
 
-    let backend2 = backend.clone();
-
-    let mut server = build_server(backend2, with_config.server_port);
+    let mut server = build_server(with_config.server_port, backend);
 
     println!("Having built server");
 
 
-    return (backend, server);
+    return server;
 }
 
 
 pub struct ServerWriteResult {
-    pub error_message : Option<String>,
-    pub is_success : bool,
-    pub content : Option<SuccessContent>,
+    pub error_message: Option<String>,
+    pub is_success: bool,
+    pub content: Option<SuccessContent>,
 }
 
 pub struct SuccessContent {
-    pub timestamp : u64,
-    pub refreshed_data : HashMap<String, serde_json::Value>,
+    pub timestamp: u64,
+    pub refreshed_data: HashMap<String, serde_json::Value>,
 }
 
 
 #[derive(Serialize, Deserialize)]
 pub struct PaginatedResult<T> {
-    total_count : u32,
-    from : u32,
-    to : u32,
-    results : Vec<T>,
+    total_count: u32,
+    from: u32,
+    to: u32,
+    results: Vec<T>,
 }
 
 
@@ -208,12 +195,11 @@ impl RefreshStateExt for ParametersAll {
 
 
 pub trait WriteApplicator {
+    type ErrorType: std::error::Error;
 
-    type ErrorType : std::error::Error;
-
-fn apply_write(backend : &mut Backend, event : rustix_event_shop::BLEvents ) -> Result<SuccessContent, Self::ErrorType>;
-    fn apply_write_to_result(backend : &mut Backend, event : rustix_event_shop::BLEvents) -> ServerWriteResult {
-        let r = Self::apply_write(backend,event);
+    fn apply_write(backend: &mut Backend, event: rustix_event_shop::BLEvents) -> Result<SuccessContent, Self::ErrorType>;
+    fn apply_write_to_result(backend: &mut Backend, event: rustix_event_shop::BLEvents) -> ServerWriteResult {
+        let r = Self::apply_write(backend, event);
         return match r {
             Ok(res) => ServerWriteResult {
                 error_message: None,
@@ -230,16 +216,13 @@ fn apply_write(backend : &mut Backend, event : rustix_event_shop::BLEvents ) -> 
 }
 
 
-
-
 pub fn blocking_http_get_call(url: &str) -> Result<String, reqwest::Error> {
-
     let mut res = reqwest::get(url)?;
 
     println!("Status: {}", res.status());
     println!("Headers:\n{}", res.headers());
 
-    let mut s : String = "".to_string();
+    let mut s: String = "".to_string();
     let size = res.read_to_string(&mut s);
 
     println!("Body:\n{}", s);
@@ -249,14 +232,8 @@ pub fn blocking_http_get_call(url: &str) -> Result<String, reqwest::Error> {
 }
 
 
-
-
-
 #[cfg(test)]
 mod tests {
-
-
-
     use iron::Iron;
     use manager::*;
     use staticfile::Static;
@@ -274,13 +251,13 @@ mod tests {
     use reqwest;
     use std::io::Read;
     use server::*;
-    use manager::tests::fill_backend_with_medium_test_data;
+    use manager::tests::*;
     use std::thread;
     use std::sync::{Arc, Mutex};
     use std::sync::mpsc::channel;
 
 
-    const HOST_WITHOUTPORT : &'static str = "http://localhost:";
+    const HOST_WITHOUTPORT: &'static str = "http://localhost:";
 
 
     lazy_static! {
@@ -291,40 +268,43 @@ mod tests {
 
     fn get_and_increment_port() -> u16 {
         let mut data = PORTCOUNTER.lock().unwrap();
-        let old_port : u16 = *data;
+        let old_port: u16 = *data;
         *data = old_port + 1;
         return old_port;
     }
 
     fn get_server_config() -> ServerConfig {
-
         return ServerConfig {
+            use_send_mail: false,
+            email_server: String::new(),
+            email_username: String::new(),
+            email_password: String::new(),
+            top_items_per_user: 4,
+            server_port: get_and_increment_port(),
+        };
+    }
 
-        use_send_mail: false,
-        email_server: String::new(),
-        email_username: String::new(),
-        email_password: String::new(),
-        top_items_per_user: 4,
-        server_port: get_and_increment_port(),
-    };}
-
-    fn build_default_server() -> (Arc<RwLock<Backend>>, iron::Listening, ServerConfig) {
+    fn build_default_server<T>(function_to_fill_backend: T) -> (iron::Listening, ServerConfig) where T: Fn(&mut Backend) -> () {
         let default_server_conf = get_server_config();
-        let (a,b) = execute_cervisia_server(&default_server_conf, None, None);
 
-        return (a, b, default_server_conf);
+        let mut backend = rustix_bl::build_transient_backend();
+
+        function_to_fill_backend(&mut backend);
+
+        let a = execute_cervisia_server(&default_server_conf, None, Some(backend));
+
+        return (a, default_server_conf);
     }
 
 
     #[test]
     fn it_works() {
-        assert!(1+1 == 2);
+        assert!(1 + 1 == 2);
     }
 
     #[test]
     fn index_html_works() {
-
-        let (backend, server, config) = build_default_server();
+        let (server, config) = build_default_server(fill_not);
 
         let httpbody = blocking_http_get_call(&format!("{}{}/index.html", HOST_WITHOUTPORT, config.server_port)).unwrap();
 
@@ -332,14 +312,12 @@ mod tests {
         server.close().unwrap();
 
         assert!(httpbody.contains("Cervisia Frontend"));
-
     }
 
 
     #[test]
     fn hello_world_works() {
-
-        let (backend, server, config) = build_default_server();
+        let (server, config) = build_default_server(fill_not);
 
         let httpbody = blocking_http_get_call(&format!("{}{}/api/helloworld", HOST_WITHOUTPORT, config.server_port)).unwrap();
 
@@ -347,13 +325,11 @@ mod tests {
         server.close().unwrap();
 
         assert_eq!(httpbody, "Hello World");
-
     }
 
     #[test]
     fn second_hello_world_works() {
-
-        let (backend, server, config) = build_default_server();
+        let (server, config) = build_default_server(fill_not);
 
         let httpbody = blocking_http_get_call(&format!("{}{}/api/helloworld", HOST_WITHOUTPORT, config.server_port)).unwrap();
 
@@ -361,15 +337,12 @@ mod tests {
         server.close().unwrap();
 
         assert_eq!(httpbody, "Hello World");
-
     }
 
     #[test]
     fn getting_all_users_works() {
-
-        let (backend, server, config) = build_default_server();
+        let (server, config) = build_default_server(fill_backend_with_medium_test_data);
         let mut server = server;
-        fill_backend_with_medium_test_data(&backend);
 
         let params = ParametersAllUsers {
             count_pars: ParametersAllUsersCount {
@@ -388,9 +361,8 @@ mod tests {
         server.close().unwrap();
 
 
-        let parsedjson : PaginatedResult<rustix_bl::datastore::User> = serde_json::from_str(&httpbody).unwrap();
+        let parsedjson: PaginatedResult<rustix_bl::datastore::User> = serde_json::from_str(&httpbody).unwrap();
 
         assert_eq!(parsedjson.results.len(), 53);
-
     }
 }

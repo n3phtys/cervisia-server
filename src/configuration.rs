@@ -13,6 +13,7 @@ use toml;
 use std::io;
 use std::sync::{Arc, RwLock};
 use std::thread;
+use server::Backend;
 
 
 #[derive(Debug, Deserialize)]
@@ -42,7 +43,7 @@ impl Default for ServerConfig {
 }
 
 
-trait Loadable  where Self: std::marker::Sized{
+trait Loadable where Self: std::marker::Sized {
     fn from_path(path: &std::path::PathBuf) -> Result<Self, io::Error>;
 }
 
@@ -91,20 +92,17 @@ pub fn path_to_config_file_and_mkdirs() -> std::path::PathBuf {
 
 fn assert_default_settings_parse() -> bool {
     let str_incl = include_str!("SettingsDefault.toml");
-    let decoded: Result<ServerConfig,_> = toml::from_str(&str_incl);
+    let decoded: Result<ServerConfig, _> = toml::from_str(&str_incl);
     return decoded.is_ok();
 }
 
 pub fn watch_config_changes<F>(path_to_config_file: &std::path::PathBuf, function_to_execute: F) -> ()
-    where F: Fn(&ServerConfig, Option<Arc<RwLock<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>>>>, Option<iron::Listening>) -> (Arc<RwLock<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>>>, iron::Listening) {
-
-
+    where F: Fn(&ServerConfig, Option<iron::Listening>, Option<Backend>) -> iron::Listening {
     println!("Here");
     //assert that default is right
     if !assert_default_settings_parse() {
         panic!("SettingsDefault.toml is not parsing!");
     }
-
 
 
     println!("There");
@@ -125,15 +123,13 @@ pub fn watch_config_changes<F>(path_to_config_file: &std::path::PathBuf, functio
     // below will be monitored for changes.
 
     let mut old_server: Option<iron::Listening> = None;
-    let mut old_backend: Option<Arc<RwLock<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>>>> = (None);
 
 
     let config_result = ServerConfig::from_path(path_to_config_file);
 
     if let Ok(config) = config_result {
-        let (b, s) = function_to_execute(&config, old_backend, old_server);
+        let s = function_to_execute(&config, old_server, None);
         old_server = Some(s);
-        old_backend = Some(b);
     } else {
         println!("Error during Config parsing: {:?}", config_result);
     }
@@ -146,7 +142,6 @@ pub fn watch_config_changes<F>(path_to_config_file: &std::path::PathBuf, functio
     // This is a simple loop, but you may want to use more complex logic here,
     // for example to handle I/O.
     loop {
-
         debug!("Loop");
 
         match rx.recv() {
@@ -156,9 +151,8 @@ pub fn watch_config_changes<F>(path_to_config_file: &std::path::PathBuf, functio
                 let config_result = ServerConfig::from_path(path_to_config_file);
 
                 if let Ok(config) = config_result {
-                    let (b, s) = function_to_execute(&config, old_backend, old_server);
+                    let s = function_to_execute(&config, old_server, None);
                     old_server = Some(s);
-                    old_backend = Some(b);
                 } else {
                     println!("Error during Config parsing: {:?}", config_result);
                 }
