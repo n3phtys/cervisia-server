@@ -1,5 +1,7 @@
 #![feature(const_fn)]
 
+#[macro_use]
+extern crate lazy_static;
 extern crate iron;
 extern crate staticfile;
 extern crate time;
@@ -17,6 +19,7 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate reqwest;
 extern crate rand;
+extern crate router;
 
 
 use iron::prelude::*;

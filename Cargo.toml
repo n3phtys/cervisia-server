@@ -4,12 +4,12 @@ version = "0.1.0"
 authors = ["nephtys <christopher.kaag@gmail.com>"]
 
 [dependencies]
-iron = "*"
+iron = "0.5"
 rustix-bl = "*"
 time = "*"
 staticfile = "*"
 simple_logger = "*"
-mount = "*"
+mount = "0.3"
 log = "*"
 lettre = "*"
 notify = "*"
@@ -21,3 +21,7 @@ serde_json = "*"
 hyper = "*"
 reqwest = "*"
 rand = "*"
+router = "0.5"
+lazy_static = "*"
+
+

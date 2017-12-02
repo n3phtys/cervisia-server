@@ -17,25 +17,75 @@ use rustix_bl;
 use serde_json;
 use std;
 use rustix_bl::rustix_event_shop;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
+use std::thread;
 use manager::ParametersAll;
 use reqwest;
 use std::io::Read;
+use iron::Handler;
+
+use iron::prelude::*;
+use iron::status;
+use router::Router;
+use responsehandlers::*;
 
 
-pub fn build_server(port: u16) -> iron::Listening {
-    let mut chain = Chain::new(hello_world);
-    chain.link_before(ResponseTime);
-    chain.link_after(ResponseTime);
-    let mut serv = Iron::new(chain).http(format!("localhost:{}", port)).unwrap();
+type Backend = rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>;
+
+
+
+pub fn build_server(backend : Arc<RwLock<Backend>>, port: u16) -> iron::Listening {
+    let mut router = Router::new();
+
+    let back2 = backend.clone();
+
+    router.get("/users/all", move |req: &mut Request|{all_users(&back2, req)}, "alluser");
+
+    router.get("/helloworld",  |req: &mut Request|hello_world(req), "helloworld");
+
+
+
+      let mut mount = Mount::new();
+
+    {
+        let _ = mount
+            .mount("/api/", router)
+            .mount("/", Static::new(Path::new("web/")))
+        ;
+    }
+
+
+
+    let mut serv = Iron::new(mount).http(format!("localhost:{}", port)).unwrap();
     return serv;
 }
 
 
 
+pub mod responsehandlers {
+    use super::*;
+
+    pub fn all_users(backend : &RwLock<Backend>, req: &mut iron::request::Request) -> IronResult<Response> {
+        let dat = backend.read().unwrap();
+
+        let mut v = Vec::new();
+
+        for (key,val) in &(*dat).datastore.users {
+            v.push(val);
+        }
+        let json = serde_json::to_string(&v).unwrap();
+        Ok(Response::with((iron::status::Ok, json)))
+    }
+
+    pub fn top_users(backend : &RwLock<Backend>, req: &mut iron::request::Request) -> IronResult<Response> {
+        Ok(Response::with((iron::status::Ok, "Hello World")))
+    }
+}
+
+
 pub fn execute_cervisia_server(with_config: &ServerConfig,
-                               old_backend : Option<RwLock<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>>>,
-                               old_server : Option<iron::Listening>) -> (RwLock<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>>, iron::Listening) {
+                               old_backend : Option<Arc<RwLock<Backend>>>,
+                               old_server : Option<iron::Listening>) -> (Arc<RwLock<Backend>>, iron::Listening) {
 
     info!("execute_cervisia_server begins for config = {:?}", with_config);
 
@@ -54,12 +104,14 @@ pub fn execute_cervisia_server(with_config: &ServerConfig,
 
     info!("Building backend");
 
-    let mut backend = RwLock::new(rustix_bl::build_transient_backend());
+    let mut backend = Arc::new(RwLock::new(rustix_bl::build_transient_backend()));
 
 
     info!("Building server");
 
-    let mut server = build_server(with_config.server_port);
+    let backend2 = backend.clone();
+
+    let mut server = build_server(backend2, with_config.server_port);
 
     println!("Having built server");
 
@@ -96,8 +148,8 @@ pub trait WriteApplicator {
 
     type ErrorType : std::error::Error;
 
-fn apply_write(backend : &mut rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>, event : rustix_event_shop::BLEvents ) -> Result<SuccessContent, Self::ErrorType>;
-    fn apply_write_to_result(backend : &mut rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>, event : rustix_event_shop::BLEvents) -> ServerWriteResult {
+fn apply_write(backend : &mut Backend, event : rustix_event_shop::BLEvents ) -> Result<SuccessContent, Self::ErrorType>;
+    fn apply_write_to_result(backend : &mut Backend, event : rustix_event_shop::BLEvents) -> ServerWriteResult {
         let r = Self::apply_write(backend,event);
         return match r {
             Ok(res) => ServerWriteResult {
@@ -160,13 +212,29 @@ mod tests {
     use std::io::Read;
     use server::*;
     use manager::tests::fill_backend_with_medium_test_data;
+    use std::thread;
+    use std::sync::{Arc, Mutex};
+    use std::sync::mpsc::channel;
 
 
-    const HOST_PLUS_PORT : &'static str = "http://localhost:8081";
+    const HOST_WITHOUTPORT : &'static str = "http://localhost:";
+
+
+    lazy_static! {
+
+    static ref PORTCOUNTER: Mutex<u16> = Mutex::new(8081);
+
+}
+
+    fn get_and_increment_port() -> u16 {
+        let mut data = PORTCOUNTER.lock().unwrap();
+        let old_port : u16 = *data;
+        *data = old_port + 1;
+        return old_port;
+    }
 
     fn get_server_config() -> ServerConfig {
 
-        let port_str : String = HOST_PLUS_PORT.chars().skip("http://localhost:".len()).collect();
         return ServerConfig {
 
         use_send_mail: false,
@@ -174,12 +242,14 @@ mod tests {
         email_username: String::new(),
         email_password: String::new(),
         top_items_per_user: 4,
-        server_port: port_str.parse::<u16>().unwrap(),
+        server_port: get_and_increment_port(),
     };}
 
-    fn build_default_server() -> (RwLock<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>>, iron::Listening) {
+    fn build_default_server() -> (Arc<RwLock<Backend>>, iron::Listening, ServerConfig) {
         let default_server_conf = get_server_config();
-        return execute_cervisia_server(&default_server_conf, None, None);
+        let (a,b) = execute_cervisia_server(&default_server_conf, None, None);
+
+        return (a, b, default_server_conf);
     }
 
 
@@ -189,11 +259,26 @@ mod tests {
     }
 
     #[test]
+    fn index_html_works() {
+
+        let (backend, server, config) = build_default_server();
+
+        let httpbody = blocking_http_get_call(&format!("{}{}/index.html", HOST_WITHOUTPORT, config.server_port)).unwrap();
+
+        let mut server = server;
+        server.close().unwrap();
+
+        assert!(httpbody.contains("Cervisia Frontend"));
+
+    }
+
+
+    #[test]
     fn hello_world_works() {
 
-        let (backend, server) = build_default_server();
+        let (backend, server, config) = build_default_server();
 
-        let httpbody = blocking_http_get_call(HOST_PLUS_PORT).unwrap();
+        let httpbody = blocking_http_get_call(&format!("{}{}/api/helloworld", HOST_WITHOUTPORT, config.server_port)).unwrap();
 
         let mut server = server;
         server.close().unwrap();
@@ -205,9 +290,9 @@ mod tests {
     #[test]
     fn second_hello_world_works() {
 
-        let (backend, server) = build_default_server();
+        let (backend, server, config) = build_default_server();
 
-        let httpbody = blocking_http_get_call(HOST_PLUS_PORT).unwrap();
+        let httpbody = blocking_http_get_call(&format!("{}{}/api/helloworld", HOST_WITHOUTPORT, config.server_port)).unwrap();
 
         let mut server = server;
         server.close().unwrap();
@@ -219,7 +304,7 @@ mod tests {
     #[test]
     fn getting_all_users_works() {
 
-        let (backend, server) = build_default_server();
+        let (backend, server, config) = build_default_server();
         let mut server = server;
         fill_backend_with_medium_test_data(&backend);
 
@@ -233,13 +318,16 @@ mod tests {
             },
         };
         let query = serde_json::to_string(&params).unwrap();
-        let url = format!("{}/api/users/all?query={}", HOST_PLUS_PORT, query);
+        let url = format!("{}{}/api/users/all?query={}", HOST_WITHOUTPORT, config.server_port, query);
 
         let httpbody = blocking_http_get_call(&url).unwrap();
 
         server.close().unwrap();
 
-        assert_eq!(httpbody, "Hello World");
+
+        let parsedjson : Vec<rustix_bl::datastore::User> = serde_json::from_str(&httpbody).unwrap();
+
+        assert_eq!(parsedjson.len(), 53);
 
     }
 }

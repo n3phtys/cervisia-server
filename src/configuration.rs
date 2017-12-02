@@ -4,7 +4,6 @@ use std::io::Write;
 use std::io::Read;
 use config::*;
 use config;
-use std::sync::RwLock;
 use notify::{RecommendedWatcher, DebouncedEvent, Watcher, RecursiveMode};
 use std::sync::mpsc::channel;
 use std::time::Duration;
@@ -12,6 +11,8 @@ use rustix_bl;
 use iron;
 use toml;
 use std::io;
+use std::sync::{Arc, RwLock};
+use std::thread;
 
 
 #[derive(Debug, Deserialize)]
@@ -95,7 +96,7 @@ fn assert_default_settings_parse() -> bool {
 }
 
 pub fn watch_config_changes<F>(path_to_config_file: &std::path::PathBuf, function_to_execute: F) -> ()
-    where F: Fn(&ServerConfig, Option<RwLock<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>>>, Option<iron::Listening>) -> (RwLock<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>>, iron::Listening) {
+    where F: Fn(&ServerConfig, Option<Arc<RwLock<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>>>>, Option<iron::Listening>) -> (Arc<RwLock<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>>>, iron::Listening) {
 
 
     println!("Here");
@@ -124,7 +125,7 @@ pub fn watch_config_changes<F>(path_to_config_file: &std::path::PathBuf, functio
     // below will be monitored for changes.
 
     let mut old_server: Option<iron::Listening> = None;
-    let mut old_backend: Option<RwLock<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>>> = None;
+    let mut old_backend: Option<Arc<RwLock<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>>>> = (None);
 
 
     let config_result = ServerConfig::from_path(path_to_config_file);
