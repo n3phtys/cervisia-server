@@ -140,7 +140,10 @@ pub fn blocking_http_get_call(url: &str) -> Result<String, reqwest::Error> {
 #[cfg(test)]
 mod tests {
 
+
+
     use iron::Iron;
+    use manager::*;
     use staticfile::Static;
     use mount::Mount;
     use hello_world;
@@ -156,6 +159,7 @@ mod tests {
     use reqwest;
     use std::io::Read;
     use server::*;
+    use manager::tests::fill_backend_with_medium_test_data;
 
 
     const HOST_PLUS_PORT : &'static str = "http://localhost:8081";
@@ -206,6 +210,33 @@ mod tests {
         let httpbody = blocking_http_get_call(HOST_PLUS_PORT).unwrap();
 
         let mut server = server;
+        server.close().unwrap();
+
+        assert_eq!(httpbody, "Hello World");
+
+    }
+
+    #[test]
+    fn getting_all_users_works() {
+
+        let (backend, server) = build_default_server();
+        let mut server = server;
+        fill_backend_with_medium_test_data(&backend);
+
+        let params = ParametersAllUsers {
+            count_pars: ParametersAllUsersCount {
+                searchterm: "".to_string(),
+            },
+            pagination: ParametersPagination {
+                start_inclusive: 0,
+                end_exclusive: 1_000_000,
+            },
+        };
+        let query = serde_json::to_string(&params).unwrap();
+        let url = format!("{}/api/users/all?query={}", HOST_PLUS_PORT, query);
+
+        let httpbody = blocking_http_get_call(&url).unwrap();
+
         server.close().unwrap();
 
         assert_eq!(httpbody, "Hello World");

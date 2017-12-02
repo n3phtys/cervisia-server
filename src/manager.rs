@@ -5,6 +5,7 @@ use std::vec::*;
 use std::collections::*;
 
 
+#[derive(Serialize, Deserialize)]
 pub struct ParametersAll {
     pub top_users : ParametersTopUsers,
     pub all_users : ParametersAllUsers,
@@ -19,39 +20,47 @@ pub struct ParametersAll {
     pub personal_detail_infos : ParametersDetailInfoForUser,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ParametersPagination {
     pub start_inclusive: u32,
     pub end_exclusive: u32,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ParametersTopUsers {
     searchterm: String,
     n : u16,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ParametersAllUsersCount {
-    searchterm: String,
+    pub searchterm: String,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ParametersAllUsers {
     pub count_pars : ParametersAllUsersCount,
     pub pagination : ParametersPagination,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ParametersAllItemsCount {
     searchterm: String,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ParametersAllItems {
     pub count_pars : ParametersAllItemsCount,
     pub pagination : ParametersPagination,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ParametersPurchaseLogGlobalCount {
     pub millis_start: u64,
     pub millis_end: u64,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ParametersPurchaseLogGlobal{
     pub count_pars : ParametersPurchaseLogGlobalCount,
     pub pagination : ParametersPagination,
@@ -59,8 +68,10 @@ pub struct ParametersPurchaseLogGlobal{
 }
 
 
+#[derive(Serialize, Deserialize)]
 pub struct ParametersBillsCount {}
 
+#[derive(Serialize, Deserialize)]
 pub struct ParametersBills{
     pub count_pars : ParametersBillsCount,
     pub pagination : ParametersPagination,
@@ -69,42 +80,51 @@ pub struct ParametersBills{
 
 
 
+#[derive(Serialize, Deserialize)]
 pub struct ParametersOpenFFAFreebies {
 //TODO: implement
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ParametersTopPersonalDrinks {
     n : u8,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ParametersPurchaseLogPersonalCount {
     user_id: u64,
     millis_start: u64,
     millis_end: u64,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ParametersPurchaseLogPersonal {
     pub count_pars : ParametersPurchaseLogPersonalCount,
     pub pagination : ParametersPagination,
 
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ParametersIncomingFreebiesCount {
 //TODO: implement
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ParametersIncomingFreebies {
 //TODO: implement
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ParametersOutgoingFreebiesCount {
 //TODO: implement
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ParametersOutgoingFreebies {
     //TODO: implement
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ParametersDetailInfoForUser {
     user_id: u64,
 }
@@ -141,6 +161,7 @@ pub trait RustixReadsPersonal {
     fn detail_info_for_user(par : &ParametersDetailInfoForUser) -> UserDetailInfo;
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct UserDetailInfo {
     pub consumed: HashMap<String, u32>,
     //pub open_freebies: Vec<Freeby>,
@@ -173,3 +194,58 @@ pub trait RustixSupport {
     fn send_personal_statistic_via_mail();
 }
 
+
+
+#[cfg(test)]
+pub mod tests {
+
+    use serde_json;
+    use std;
+    use rustix_bl;
+    use rustix_bl::rustix_event_shop;
+    use std::sync::RwLock;
+    use manager::ParametersAll;
+    use rand::{Rng, SeedableRng, StdRng};
+    use rustix_bl::rustix_backend::*;
+
+    pub fn fill_backend_with_medium_test_data(backend : &RwLock<rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>>) -> () {
+        let mut back = backend.write().unwrap();
+
+        (*back).create_user("Gruin".to_string());
+        (*back).create_user("Vall".to_string());
+        (*back).create_user("rad(i)".to_string());
+
+        for i in 0..50 {
+            (*back).create_user("GenUser #".to_string() + &i.to_string());
+        }
+
+        (*back).create_item(
+            "Club Mate".to_string(),
+            100,
+            Some("without alcohol".to_string()),
+        );
+        (*back).create_item("Pils".to_string(), 95, Some("Beer".to_string()));
+        (*back).create_item("Whiskey".to_string(), 1200, Some("Liquor".to_string()));
+        (*back).create_item("Schirker".to_string(), 1100, Some("Liquor".to_string()));
+        (*back).create_item("Kräussen".to_string(), 1100, Some("Beer".to_string()));
+
+
+        let seed: &[_] = &[42];
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+
+        let mut timestamp_counter = 12345678i64;
+        (*back).purchase(0, 2, timestamp_counter);
+
+        //random purchases for the existing users
+        for user_id in 0..((*back).datastore.users.len() as u32) {
+            let nr_of_purchases: u32 = rng.gen_range(0u32, 5u32);
+            for _ in 0..nr_of_purchases {
+                timestamp_counter += 1;
+                let item_id: u32 = rng.gen_range(0u32, (*back).datastore.items.len() as u32);
+                (*back).purchase(user_id, item_id, timestamp_counter);
+            }
+        }
+    }
+
+}

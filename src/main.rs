@@ -16,7 +16,7 @@ extern crate toml;
 extern crate serde_derive;
 extern crate serde_json;
 extern crate reqwest;
-
+extern crate rand;
 
 
 use iron::prelude::*;
