@@ -249,21 +249,23 @@ impl ServableRustix for ServableRustixImpl {
     fn query_read(backend: &Backend, query: ReadQueryParams) -> Result<serde_json::Value, Box<::std::error::Error>> {
         use server::*;
         use manager::ReadQueryParams::*;
+        use rustix_bl::datastore::DatastoreQueries;
 
         //TODO: implement bit by bit
 
         match query {
             AllUsers(param) => {
-                //TODO: this requires searchterm based suffix trees in datastore
+
+
+                let xs = backend.datastore.users_searchhit_ids(&param.count_pars.searchterm);
+
+                println!("AllUsersQuery with total store =\n{:?}\nvs\n{:?}", backend.datastore.users, xs);
+
 
                 let mut v: Vec<rustix_bl::datastore::User> = Vec::new();
-                let mut total = 0u32;
-
-                for (id, user) in &(*backend).datastore.users {
-                    //if user.username.contains(param.count_pars.searchterm) {
-                    total += 1;
-                    v.push(user.clone());
-                    //}
+                let total = xs.len() as u32;
+                for id in xs {
+                    v.push(backend.datastore.users.get(&id).unwrap().clone());
                 }
 
                 let result: PaginatedResult<rustix_bl::datastore::User> = PaginatedResult {

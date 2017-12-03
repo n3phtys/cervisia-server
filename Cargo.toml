@@ -25,7 +25,7 @@ reqwest = "*"
 rand = "*"
 router = "0.5"
 lazy_static = "*"
-params = "*"
-persistent = "*"
+params = "0.7"
+persistent = "0.3"
 
 
