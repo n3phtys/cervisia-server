@@ -216,14 +216,14 @@ pub fn execute_cervisia_server(with_config: &ServerConfig,
     return server;
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ServerWriteResult {
     pub error_message: Option<String>,
     pub is_success: bool,
     pub content: Option<SuccessContent>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SuccessContent {
     pub timestamp_epoch_millis: i64,
     pub refreshed_data: RefreshedData,
@@ -240,7 +240,7 @@ pub fn current_time_millis() -> i64 {
     return (d.timestamp()  * 1000) + (d.nanosecond() as i64 / 1000000);
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct RefreshedData {
     pub DetailInfoForUser: serde_json::Value,
     pub TopUsers: serde_json::Value,
@@ -256,7 +256,7 @@ pub struct RefreshedData {
     pub OutgoingFreebies: serde_json::Value,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PaginatedResult<T> {
     pub total_count: u32,
     pub from: u32,
@@ -539,8 +539,9 @@ mod tests {
         assert_eq!(parsedjson.error_message, None);
         assert!(parsedjson.content.is_some());
         let unpacked = parsedjson.content.unwrap();
-        assert!(unpacked.refreshed_data.AllUsers.as_array().is_some());
-        assert_eq!(unpacked.refreshed_data.AllUsers.as_array().unwrap().len(), 54);
+        //println!("untracked = {:?}", unpacked);
+        assert!(unpacked.refreshed_data.AllUsers.as_object().unwrap().get("results").unwrap().as_array().is_some());
+        assert_eq!(unpacked.refreshed_data.AllUsers.as_object().unwrap().get("results").unwrap().as_array().unwrap().len(), 54);
 
 
         {
