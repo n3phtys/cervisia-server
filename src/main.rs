@@ -14,6 +14,8 @@ extern crate lettre;
 extern crate notify;
 extern crate config;
 extern crate toml;
+extern crate serde;
+extern crate chrono;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;

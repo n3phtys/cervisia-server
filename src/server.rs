@@ -1,5 +1,6 @@
 use iron::prelude::*;
 use iron::{BeforeMiddleware, AfterMiddleware, typemap};
+use time;
 use time::precise_time_ns;
 use std::path::Path;
 use std::collections::*;
@@ -22,6 +23,8 @@ use manager::ParametersAll;
 use reqwest;
 use std::io::Read;
 use iron::Handler;
+use serde;
+use chrono::prelude::*;
 
 use iron::prelude::*;
 use iron::status;
@@ -48,9 +51,10 @@ pub fn build_server(port: u16, backend: Option<Backend>) -> iron::Listening {
     let mut router = Router::new();
 
 
-    router.get("/users/all", move |req: &mut Request| { all_users(req) }, "alluser");
+    router.get("/users/all", all_users, "alluser");
+    router.post("/users", add_user, "adduser");
 
-    router.get("/helloworld", |req: &mut Request| hello_world(req), "helloworld");
+    router.get("/helloworld", hello_world, "helloworld");
 
 
     let mut mount = Mount::new();
@@ -79,6 +83,33 @@ pub mod responsehandlers {
     use super::*;
     use manager::*;
 
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct CreateItem {
+itemname: String,
+price_cents: u32,
+category: Option<String>,
+}
+
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct CreateUser { pub username: String }
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct DeleteItem { pub item_id: u32 }
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct DeleteUser { pub user_id: u32 }
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct MakeSimplePurchase {
+        pub user_id: u32,
+        pub item_id: u32,
+        pub timestamp: i64,
+}
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct UndoPurchase { pub unique_id: u64 }
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct CreateBill {
+        pub timestamp: u32,
+        pub user_ids: rustix_bl::datastore::UserGroup,
+        pub comment: String,
+}
 
     fn extract_query(req: &mut iron::request::Request) -> Option<String> {
         let map = req.get_ref::<Params>().unwrap();
@@ -91,6 +122,48 @@ pub mod responsehandlers {
     }
 
 
+    fn extract_body(req: &mut iron::request::Request) -> String {
+        let mut s = String::new();
+        let number_of_bytes = req.body.read_to_string(&mut s);
+        return s;
+    }
+
+    pub fn add_user(req: &mut iron::request::Request) -> IronResult<Response> {
+        let posted_body = extract_body(req);
+        println!("posted_body = {:?}", posted_body);
+        let parsed_body : CreateUser = serde_json::from_str(&posted_body).unwrap();
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let mut dat = datholder.write().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::CreateUser {
+                    username: parsed_body.username,
+                });
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                        error_message: None,
+                        is_success: true,
+                        content: Some(SuccessContent {
+                            timestamp_epoch_millis: current_time_millis(),
+                            refreshed_data: sux,
+                        }),
+                    }).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                        error_message: Some(err.description().to_string()),
+                        is_success: false,
+                        content: None,
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
     pub fn all_users(req: &mut iron::request::Request) -> IronResult<Response> {
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let dat = datholder.read().unwrap();
@@ -100,33 +173,17 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersAllUsers = serde_json::from_str(&json_query).unwrap();
 
+                let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::AllUsers(param));
 
-                let mut v: Vec<rustix_bl::datastore::User> = Vec::new();
-                let mut total = 0u32; //TODO: implement correctly in manager
-
-
-                let hm = &dat.datastore.users;
-
-                for (id, user) in &(*dat).datastore.users {
-                    //if user.username.contains(param.count_pars.searchterm) {
-                    total += 1;
-                    v.push(user.clone());
-                    //}
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                        total_count: 0,
+                        from: 0,
+                        to: 0,
+                        results: Vec::new(),
+                    }).unwrap()))),
                 }
-
-
-                let result: PaginatedResult<rustix_bl::datastore::User> = PaginatedResult {
-                    total_count: total,
-                    from: param.pagination.start_inclusive,
-                    to: param.pagination.end_exclusive,
-                    results: v,
-                };
-
-
-                let json = serde_json::to_string(&result).unwrap();
-
-
-                return Ok(Response::with((iron::status::Ok, json)));
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
         };
@@ -159,25 +216,52 @@ pub fn execute_cervisia_server(with_config: &ServerConfig,
     return server;
 }
 
-
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ServerWriteResult {
     pub error_message: Option<String>,
     pub is_success: bool,
     pub content: Option<SuccessContent>,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
 pub struct SuccessContent {
-    pub timestamp: u64,
-    pub refreshed_data: HashMap<String, serde_json::Value>,
+    pub timestamp_epoch_millis: i64,
+    pub refreshed_data: RefreshedData,
+
 }
 
+pub fn get_current_milliseconds() -> i64 {
+    return current_time_millis();
+}
 
-#[derive(Serialize, Deserialize)]
+pub fn current_time_millis() -> i64 {
+
+    let d = Local::now();
+    return (d.timestamp()  * 1000) + (d.nanosecond() as i64 / 1000000);
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct RefreshedData {
+    pub DetailInfoForUser: serde_json::Value,
+    pub TopUsers: serde_json::Value,
+    pub AllUsers: serde_json::Value,
+    pub AllItems: serde_json::Value,
+    pub PurchaseLogGlobal: serde_json::Value,
+    pub BillsCount: serde_json::Value,
+    pub Bills: serde_json::Value,
+    pub OpenFFAFreebies: serde_json::Value,
+    pub TopPersonalDrinks: serde_json::Value,
+    pub PurchaseLogPersonal: serde_json::Value,
+    pub IncomingFreebies: serde_json::Value,
+    pub OutgoingFreebies: serde_json::Value,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct PaginatedResult<T> {
-    total_count: u32,
-    from: u32,
-    to: u32,
-    results: Vec<T>,
+    pub total_count: u32,
+    pub from: u32,
+    pub to: u32,
+    pub results: Vec<T>,
 }
 
 
@@ -218,6 +302,26 @@ pub trait WriteApplicator {
 
 pub fn blocking_http_get_call(url: &str) -> Result<String, reqwest::Error> {
     let mut res = reqwest::get(url)?;
+
+    println!("Status: {}", res.status());
+    println!("Headers:\n{}", res.headers());
+
+    let mut s: String = "".to_string();
+    let size = res.read_to_string(&mut s);
+
+    println!("Body:\n{}", s);
+
+    println!("\n\nDone.");
+    return Ok(s);
+}
+
+
+pub fn blocking_http_post_call<T: serde::ser::Serialize>(url: &str, content: &T) -> Result<String, reqwest::Error> {
+    let client = reqwest::Client::new();
+    let mut res = client.post(url)
+        .body(serde_json::to_string(content).unwrap())
+        .send()?;
+
 
     println!("Status: {}", res.status());
     println!("Headers:\n{}", res.headers());
@@ -364,5 +468,93 @@ mod tests {
         let parsedjson: PaginatedResult<rustix_bl::datastore::User> = serde_json::from_str(&httpbody).unwrap();
 
         assert_eq!(parsedjson.results.len(), 53);
+    }
+
+
+    #[test]
+    fn adding_a_user_works() {
+        let (server, config) = build_default_server(fill_backend_with_medium_test_data);
+        let mut server = server;
+
+        let params_for_user = ParametersAllUsers {
+            count_pars: ParametersAllUsersCount {
+                searchterm: "".to_string(),
+            },
+            pagination: ParametersPagination {
+                start_inclusive: 0,
+                end_exclusive: 1_000_000,
+            },
+        };
+
+        {
+            let query = serde_json::to_string(&params_for_user).unwrap();
+            let url = format!("{}{}/api/users/all?query={}", HOST_WITHOUTPORT, config.server_port, query);
+
+            let httpbody = blocking_http_get_call(&url).unwrap();
+
+            server.close().unwrap();
+
+
+            let parsedjson: PaginatedResult<rustix_bl::datastore::User> = serde_json::from_str(&httpbody).unwrap();
+
+            assert_eq!(parsedjson.results.len(), 53);
+        }
+
+        let state = ParametersAll {
+            top_users: ParametersTopUsers { n: 0 },
+            all_users: ParametersAllUsers { count_pars: ParametersAllUsersCount { searchterm: String::new() }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 1_000_000 } },
+            all_items: ParametersAllItems { count_pars: ParametersAllItemsCount { searchterm: String::new() }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
+            global_log: ParametersPurchaseLogGlobal { count_pars: ParametersPurchaseLogGlobalCount { millis_start: 0, millis_end: 0 }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
+            bills: ParametersBills { count_pars: ParametersBillsCount {}, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
+            open_ffa_freebies: ParametersOpenFFAFreebies {},
+            top_personal_drinks: ParametersTopPersonalDrinks { n: 0 },
+            personal_log: ParametersPurchaseLogPersonal {
+                count_pars: ParametersPurchaseLogPersonalCount {
+                    user_id: 0,
+                    millis_start: 0,
+                    millis_end: 0,
+                },
+                pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 },
+            },
+            incoming_freebies: ParametersIncomingFreebies {},
+            outgoing_freebies: ParametersOutgoingFreebies {},
+            personal_detail_infos: ParametersDetailInfoForUser { user_id: 0 },
+        };
+
+        let postjson = CreateUser {
+            username: "my new username".to_string(),
+        };
+
+        let query = serde_json::to_string(&state).unwrap();
+        let url = format!("{}{}/api/users?query={}", HOST_WITHOUTPORT, config.server_port, query);
+
+        let httpbody = blocking_http_post_call(&url, &postjson).unwrap();
+
+        server.close().unwrap();
+
+
+        let parsedjson: ServerWriteResult = serde_json::from_str(&httpbody).unwrap();
+
+        assert_eq!(parsedjson.is_success, true);
+        assert_eq!(parsedjson.error_message, None);
+        assert!(parsedjson.content.is_some());
+        let unpacked = parsedjson.content.unwrap();
+        assert!(unpacked.refreshed_data.AllUsers.as_array().is_some());
+        assert_eq!(unpacked.refreshed_data.AllUsers.as_array().unwrap().len(), 54);
+
+
+        {
+            let query = serde_json::to_string(&params_for_user).unwrap();
+            let url = format!("{}{}/api/users/all?query={}", HOST_WITHOUTPORT, config.server_port, query);
+
+            let httpbody = blocking_http_get_call(&url).unwrap();
+
+            server.close().unwrap();
+
+
+            let parsedjson: PaginatedResult<rustix_bl::datastore::User> = serde_json::from_str(&httpbody).unwrap();
+
+            assert_eq!(parsedjson.results.len(), 54);
+        }
     }
 }

@@ -2,6 +2,8 @@ use rustix_bl;
 use rustix_bl::*;
 use rustix_bl::datastore::*;
 use std::vec::*;
+use server;
+use server::RefreshedData;
 use std::collections::*;
 
 
@@ -38,6 +40,7 @@ pub enum ReadQueryParams {
 }
 
 
+
 #[derive(Serialize, Deserialize)]
 pub struct ParametersAll {
     pub top_users: ParametersTopUsers,
@@ -56,8 +59,8 @@ pub struct ParametersAll {
 
 #[derive(Serialize, Deserialize)]
 pub struct ParametersTopUsers {
-    searchterm: String,
-    n: u16,
+    //decided not to use this: pub searchterm: String,
+    pub n: u16,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -73,7 +76,7 @@ pub struct ParametersAllUsers {
 
 #[derive(Serialize, Deserialize)]
 pub struct ParametersAllItemsCount {
-    searchterm: String,
+    pub searchterm: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -114,14 +117,14 @@ pub struct ParametersOpenFFAFreebies {
 
 #[derive(Serialize, Deserialize)]
 pub struct ParametersTopPersonalDrinks {
-    n: u8,
+    pub n: u8,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct ParametersPurchaseLogPersonalCount {
-    user_id: u64,
-    millis_start: u64,
-    millis_end: u64,
+    pub user_id: u64,
+    pub millis_start: u64,
+    pub millis_end: u64,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -153,7 +156,7 @@ pub struct ParametersOutgoingFreebies {
 
 #[derive(Serialize, Deserialize)]
 pub struct ParametersDetailInfoForUser {
-    user_id: u64,
+    pub user_id: u64,
 }
 
 
@@ -227,12 +230,112 @@ pub trait ServableRustix {
     /**
     returns json array or number
     */
-    fn query_read(backend: &Backend, query: ReadQueryParams) -> Result<String, Box<::std::error::Error>>;
+    fn query_read(backend: &Backend, query: ReadQueryParams) -> Result<serde_json::Value, Box<::std::error::Error>>;
 
     /**
     returns json array or number, exactly what is to be updated (using query_read() to compute new values)
     */
-    fn check_apply_write(backend: &mut Backend, app_state: ParametersAll) -> Result<String, Box<::std::error::Error>>;
+    fn check_apply_write(backend: &mut Backend, app_state: ParametersAll, write_event : rustix_bl::rustix_event_shop::BLEvents) -> Result<RefreshedData, Box<::std::error::Error>>;
+}
+
+
+
+pub struct ServableRustixImpl {}
+
+impl ServableRustix for ServableRustixImpl {
+    /**
+    returns PaginatedResult in case of list query, and number in case of count query
+    */
+    fn query_read(backend: &Backend, query: ReadQueryParams) -> Result<serde_json::Value, Box<::std::error::Error>> {
+        use server::*;
+        use manager::ReadQueryParams::*;
+
+        //TODO: implement bit by bit
+
+        match query {
+            AllUsers(param) => {
+                //TODO: this requires searchterm based suffix trees in datastore
+
+                let mut v: Vec<rustix_bl::datastore::User> = Vec::new();
+                let mut total = 0u32;
+
+                for (id, user) in &(*backend).datastore.users {
+                    //if user.username.contains(param.count_pars.searchterm) {
+                    total += 1;
+                    v.push(user.clone());
+                    //}
+                }
+
+                let result: PaginatedResult<rustix_bl::datastore::User> = PaginatedResult {
+                    total_count: total,
+                    from: param.pagination.start_inclusive,
+                    to: param.pagination.end_exclusive,
+                    results: v.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize).map(|r|r.clone()).collect(),
+                };
+
+                return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
+            },
+            TopUsers(param) => {
+                //TODO: this requires datastore to keep all users sorted descendingly if we want to take by n
+
+
+                let mut v: Vec<rustix_bl::datastore::User> = Vec::new();
+                let mut total = 0u32;
+
+
+                for id in &(*backend).datastore.top_users {
+                    //if user.username.contains(param.count_pars.searchterm) {
+                    total += 1;
+                    match backend.datastore.users.get(id) {
+                        Some(user) => v.push(user.clone()),
+                        None => panic!("Userkey for topuser not found in user hashmap"),
+                    }
+                }
+
+                let result: PaginatedResult<rustix_bl::datastore::User> = PaginatedResult {
+                    total_count: total,
+                    from: 0,
+                    to: total,
+                    results: v.iter().map(|r|r.clone()).collect(),
+                };
+
+                return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
+
+            },
+            _ => unimplemented!()
+        }
+    }
+
+    fn check_apply_write(backend: &mut Backend, app_state: ParametersAll, write_event: rustix_bl::rustix_event_shop::BLEvents) -> Result<RefreshedData, Box<::std::error::Error>> {
+        use rustix_bl::rustix_backend::WriteBackend;
+        use manager::ReadQueryParams::*;
+        match write_event {
+            rustix_event_shop::BLEvents::CreateUser{username} => {
+                let username : String = username;
+                let _ = &mut backend.create_user(username);
+                //refresh only 2 values:
+                //refresh all users
+                let all_list = Self::query_read(&*backend, AllUsers(app_state.all_users))?;
+                //refresh top users
+                let top_list = Self::query_read(&*backend, TopUsers(app_state.top_users))?;
+                Ok(RefreshedData{
+                    DetailInfoForUser: serde_json::Value::Null,
+                    TopUsers: top_list,
+                    AllUsers: all_list,
+                    AllItems: serde_json::Value::Null,
+                    PurchaseLogGlobal: serde_json::Value::Null,
+                    BillsCount: serde_json::Value::Null,
+                    Bills: serde_json::Value::Null,
+                    OpenFFAFreebies: serde_json::Value::Null,
+                    TopPersonalDrinks: serde_json::Value::Null,
+                    PurchaseLogPersonal: serde_json::Value::Null,
+                    IncomingFreebies: serde_json::Value::Null,
+                    OutgoingFreebies: serde_json::Value::Null,
+                })
+            },
+            _ => unimplemented!()
+        }
+    }
 }
 
 
