@@ -550,7 +550,7 @@ mod tests {
             global_log: ParametersPurchaseLogGlobal { count_pars: ParametersPurchaseLogGlobalCount { millis_start: 0, millis_end: 0 }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
             bills: ParametersBills { count_pars: ParametersBillsCount {}, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
             open_ffa_freebies: ParametersOpenFFAFreebies {},
-            top_personal_drinks: ParametersTopPersonalDrinks { n: 0 },
+            top_personal_drinks: ParametersTopPersonalDrinks { user_id: 0, n: 0 },
             personal_log: ParametersPurchaseLogPersonal {
                 count_pars: ParametersPurchaseLogPersonalCount {
                     user_id: 0,
@@ -623,7 +623,7 @@ mod tests {
             global_log: ParametersPurchaseLogGlobal { count_pars: ParametersPurchaseLogGlobalCount { millis_start: 0, millis_end: 0 }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
             bills: ParametersBills { count_pars: ParametersBillsCount {}, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
             open_ffa_freebies: ParametersOpenFFAFreebies {},
-            top_personal_drinks: ParametersTopPersonalDrinks { n: 0 },
+            top_personal_drinks: ParametersTopPersonalDrinks { user_id: 0, n: 0 },
             personal_log: ParametersPurchaseLogPersonal {
                 count_pars: ParametersPurchaseLogPersonalCount {
                     user_id: 0,

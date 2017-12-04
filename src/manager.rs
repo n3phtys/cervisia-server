@@ -87,8 +87,8 @@ pub struct ParametersAllItems {
 
 #[derive(Serialize, Deserialize)]
 pub struct ParametersPurchaseLogGlobalCount {
-    pub millis_start: u64,
-    pub millis_end: u64,
+    pub millis_start: i64,
+    pub millis_end: i64,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -117,14 +117,15 @@ pub struct ParametersOpenFFAFreebies {
 
 #[derive(Serialize, Deserialize)]
 pub struct ParametersTopPersonalDrinks {
+    pub user_id: u32,
     pub n: u8,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct ParametersPurchaseLogPersonalCount {
-    pub user_id: u64,
-    pub millis_start: u64,
-    pub millis_end: u64,
+    pub user_id: u32,
+    pub millis_start: i64,
+    pub millis_end: i64,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -156,7 +157,7 @@ pub struct ParametersOutgoingFreebies {
 
 #[derive(Serialize, Deserialize)]
 pub struct ParametersDetailInfoForUser {
-    pub user_id: u64,
+    pub user_id: u32,
 }
 
 
@@ -304,11 +305,52 @@ impl ServableRustix for ServableRustixImpl {
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
 
             },
-            //TODO: implement both logs and detail info and top items per user
             DetailInfoForUser(param) => unimplemented!(),
-            TopPersonalDrinks(param) => unimplemented!(),
-            PurchaseLogGlobal(param) => unimplemented!(),
-            PurchaseLogPersonal(param) => unimplemented!(),
+            TopPersonalDrinks(param) => {
+
+                let xs = backend.datastore.top_item_ids(param.user_id, param.n);
+
+                let v : Vec<rustix_bl::datastore::Item> = xs.iter().map(|id| backend.datastore.items.get(id).unwrap().clone()).collect();
+
+
+                let result: PaginatedResult<rustix_bl::datastore::Item> = PaginatedResult {
+                    total_count: v.len() as u32,
+                    from: 0,
+                    to: v.len() as u32,
+                    results: v.iter().map(|r|r.clone()).collect(),
+                };
+
+                return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
+
+            },
+            PurchaseLogGlobal(param) => {
+
+                let xs = backend.datastore.global_log_filtered(param.count_pars.millis_start, param.count_pars.millis_end);
+
+                let result: PaginatedResult<rustix_bl::datastore::Purchase> = PaginatedResult {
+                    total_count: xs.len() as u32,
+                    from: param.pagination.start_inclusive,
+                    to: param.pagination.end_exclusive,
+                    results: xs.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize).map(|r|r.clone()).collect(),
+                };
+
+                return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
+
+            },
+            PurchaseLogPersonal(param) => {
+
+                let xs = backend.datastore.personal_log_filtered(param.count_pars.user_id, param.count_pars.millis_start, param.count_pars.millis_end);
+
+                let result: PaginatedResult<rustix_bl::datastore::Purchase> = PaginatedResult {
+                    total_count: xs.len() as u32,
+                    from: param.pagination.start_inclusive,
+                    to: param.pagination.end_exclusive,
+                    results: xs.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize).map(|r|r.clone()).collect(),
+                };
+
+                return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
+
+            },
             _ => unimplemented!()
         }
     }
