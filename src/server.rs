@@ -53,6 +53,7 @@ pub fn build_server(port: u16, backend: Option<Backend>) -> iron::Listening {
 
     router.get("/users/all", all_users, "alluser");
     router.post("/users", add_user, "adduser");
+    router.post("/purchases", simple_purchase, "addsimplepurchase");
 
     router.get("/helloworld", hello_world, "helloworld");
 
@@ -85,31 +86,34 @@ pub mod responsehandlers {
 
     #[derive(Serialize, Deserialize, Debug)]
     pub struct CreateItem {
-itemname: String,
-price_cents: u32,
-category: Option<String>,
-}
+        itemname: String,
+        price_cents: u32,
+        category: Option<String>,
+    }
 
     #[derive(Serialize, Deserialize, Debug)]
     pub struct CreateUser { pub username: String }
+
     #[derive(Serialize, Deserialize, Debug)]
     pub struct DeleteItem { pub item_id: u32 }
+
     #[derive(Serialize, Deserialize, Debug)]
     pub struct DeleteUser { pub user_id: u32 }
+
     #[derive(Serialize, Deserialize, Debug)]
     pub struct MakeSimplePurchase {
         pub user_id: u32,
         pub item_id: u32,
-        pub timestamp: i64,
-}
+    }
+
     #[derive(Serialize, Deserialize, Debug)]
     pub struct UndoPurchase { pub unique_id: u64 }
+
     #[derive(Serialize, Deserialize, Debug)]
     pub struct CreateBill {
-        pub timestamp: u32,
         pub user_ids: rustix_bl::datastore::UserGroup,
         pub comment: String,
-}
+    }
 
     fn extract_query(req: &mut iron::request::Request) -> Option<String> {
         let map = req.get_ref::<Params>().unwrap();
@@ -128,10 +132,49 @@ category: Option<String>,
         return s;
     }
 
+
+    pub fn simple_purchase(req: &mut iron::request::Request) -> IronResult<Response> {
+        let posted_body = extract_body(req);
+        println!("posted_body = {:?}", posted_body);
+        let parsed_body: MakeSimplePurchase = serde_json::from_str(&posted_body).unwrap();
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let mut dat = datholder.write().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::MakeSimplePurchase {
+                    user_id: parsed_body.user_id,
+                    item_id: parsed_body.item_id,
+                    timestamp: current_time_millis(),
+                });
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                        error_message: None,
+                        is_success: true,
+                        content: Some(SuccessContent {
+                            timestamp_epoch_millis: current_time_millis(),
+                            refreshed_data: sux,
+                        }),
+                    }).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                        error_message: Some(err.description().to_string()),
+                        is_success: false,
+                        content: None,
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
     pub fn add_user(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
         println!("posted_body = {:?}", posted_body);
-        let parsed_body : CreateUser = serde_json::from_str(&posted_body).unwrap();
+        let parsed_body: CreateUser = serde_json::from_str(&posted_body).unwrap();
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
         let query_str = extract_query(req);
@@ -235,9 +278,8 @@ pub fn get_current_milliseconds() -> i64 {
 }
 
 pub fn current_time_millis() -> i64 {
-
     let d = Local::now();
-    return (d.timestamp()  * 1000) + (d.nanosecond() as i64 / 1000000);
+    return (d.timestamp() * 1000) + (d.nanosecond() as i64 / 1000000);
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -498,7 +540,6 @@ mod tests {
             let parsedjson: PaginatedResult<rustix_bl::datastore::User> = serde_json::from_str(&httpbody).unwrap();
 
 
-
             assert_eq!(parsedjson.results.len(), 53);
         }
 
@@ -559,5 +600,72 @@ mod tests {
 
             assert_eq!(parsedjson.results.len(), 54);
         }
+    }
+    #[test]
+    fn making_a_simple_purchase_works() {
+        let (server, config) = build_default_server(fill_backend_with_medium_test_data);
+        let mut server = server;
+
+        let params_for_user = ParametersAllUsers {
+            count_pars: ParametersAllUsersCount {
+                searchterm: "".to_string(),
+            },
+            pagination: ParametersPagination {
+                start_inclusive: 0,
+                end_exclusive: 1_000_000,
+            },
+        };
+
+        let state = ParametersAll {
+            top_users: ParametersTopUsers { n: 0 },
+            all_users: ParametersAllUsers { count_pars: ParametersAllUsersCount { searchterm: String::new() }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 1_000_000 } },
+            all_items: ParametersAllItems { count_pars: ParametersAllItemsCount { searchterm: String::new() }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
+            global_log: ParametersPurchaseLogGlobal { count_pars: ParametersPurchaseLogGlobalCount { millis_start: 0, millis_end: 0 }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
+            bills: ParametersBills { count_pars: ParametersBillsCount {}, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
+            open_ffa_freebies: ParametersOpenFFAFreebies {},
+            top_personal_drinks: ParametersTopPersonalDrinks { n: 0 },
+            personal_log: ParametersPurchaseLogPersonal {
+                count_pars: ParametersPurchaseLogPersonalCount {
+                    user_id: 0,
+                    millis_start: 0,
+                    millis_end: 0,
+                },
+                pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 },
+            },
+            incoming_freebies: ParametersIncomingFreebies {},
+            outgoing_freebies: ParametersOutgoingFreebies {},
+            personal_detail_infos: ParametersDetailInfoForUser { user_id: 0 },
+        };
+
+        let postjson = MakeSimplePurchase {
+            user_id: 1,
+            item_id: 1,
+        };
+
+        let query = serde_json::to_string(&state).unwrap();
+        let url = format!("{}{}/api/purchases?query={}", HOST_WITHOUTPORT, config.server_port, query);
+
+        let httpbody = blocking_http_post_call(&url, &postjson).unwrap();
+
+        server.close().unwrap();
+
+
+        let parsedjson: ServerWriteResult = serde_json::from_str(&httpbody).unwrap();
+
+        assert_eq!(parsedjson.is_success, true);
+        assert_eq!(parsedjson.error_message, None);
+        assert!(parsedjson.content.is_some());
+        let unpacked = parsedjson.content.unwrap();
+
+        assert!(!unpacked.refreshed_data.PurchaseLogPersonal.is_null());
+        assert!(!unpacked.refreshed_data.PurchaseLogGlobal.is_null());
+        assert!(!unpacked.refreshed_data.TopPersonalDrinks.is_null());
+        assert!(!unpacked.refreshed_data.TopUsers.is_null());
+        assert!(unpacked.refreshed_data.AllUsers.is_null());
+        assert!(!unpacked.refreshed_data.DetailInfoForUser.is_null());
+        assert!(unpacked.refreshed_data.OutgoingFreebies.is_null());
+        assert!(unpacked.refreshed_data.OpenFFAFreebies.is_null());
+
+
     }
 }

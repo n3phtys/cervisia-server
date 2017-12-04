@@ -304,6 +304,11 @@ impl ServableRustix for ServableRustixImpl {
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
 
             },
+            //TODO: implement both logs and detail info and top items per user
+            DetailInfoForUser(param) => unimplemented!(),
+            TopPersonalDrinks(param) => unimplemented!(),
+            PurchaseLogGlobal(param) => unimplemented!(),
+            PurchaseLogPersonal(param) => unimplemented!(),
             _ => unimplemented!()
         }
     }
@@ -331,6 +336,41 @@ impl ServableRustix for ServableRustixImpl {
                     OpenFFAFreebies: serde_json::Value::Null,
                     TopPersonalDrinks: serde_json::Value::Null,
                     PurchaseLogPersonal: serde_json::Value::Null,
+                    IncomingFreebies: serde_json::Value::Null,
+                    OutgoingFreebies: serde_json::Value::Null,
+                })
+            },
+            rustix_event_shop::BLEvents::MakeSimplePurchase {user_id, item_id, timestamp} => {
+                //make simple (non-ffa, non-special) purchase
+
+                let b = &mut backend.purchase(user_id, item_id, timestamp);
+
+                //refresh 5 values:
+                //refresh top users
+                let top_list = Self::query_read(&*backend, TopUsers(app_state.top_users))?;
+                //refresh top items for current user
+                let top_items = Self::query_read(&*backend, TopPersonalDrinks(app_state.top_personal_drinks))?;
+                //refresh detailinfo for user
+                let detail_info = Self::query_read(&*backend, DetailInfoForUser(app_state.personal_detail_infos))?;
+                //refresh global log
+                let global_log = Self::query_read(&*backend, PurchaseLogGlobal(app_state.global_log))?;
+                //refresh personal log
+                let personal_log = Self::query_read(&*backend, PurchaseLogPersonal(app_state.personal_log))?;
+                //do not refresh freebies (do that on-demand)
+
+                //TODO: fix freebies
+
+                Ok(RefreshedData{
+                    DetailInfoForUser: detail_info,
+                    TopUsers: top_list,
+                    AllUsers: serde_json::Value::Null,
+                    AllItems: serde_json::Value::Null,
+                    PurchaseLogGlobal: global_log,
+                    BillsCount: serde_json::Value::Null,
+                    Bills: serde_json::Value::Null,
+                    OpenFFAFreebies: serde_json::Value::Null,
+                    TopPersonalDrinks: top_items,
+                    PurchaseLogPersonal: personal_log,
                     IncomingFreebies: serde_json::Value::Null,
                     OutgoingFreebies: serde_json::Value::Null,
                 })
