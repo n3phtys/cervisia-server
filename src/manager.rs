@@ -255,6 +255,25 @@ impl ServableRustix for ServableRustixImpl {
         //TODO: implement bit by bit
 
         match query {
+            AllItems(param) => {
+
+                let xs = backend.datastore.items_searchhit_ids(&param.count_pars.searchterm);
+
+                let mut v: Vec<rustix_bl::datastore::Item> = Vec::new();
+                let total = xs.len() as u32;
+                for id in xs {
+                    v.push(backend.datastore.items.get(&id).unwrap().clone());
+                }
+
+                let result: PaginatedResult<rustix_bl::datastore::Item> = PaginatedResult {
+                    total_count: total,
+                    from: param.pagination.start_inclusive,
+                    to: param.pagination.end_exclusive,
+                    results: v.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize).map(|r|r.clone()).collect(),
+                };
+
+                return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
+            },
             AllUsers(param) => {
 
 

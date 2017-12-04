@@ -51,7 +51,13 @@ pub fn build_server(port: u16, backend: Option<Backend>) -> iron::Listening {
     let mut router = Router::new();
 
 
-    router.get("/users/all", all_users, "alluser");
+    router.get("/users/all", all_users, "allusers");
+    router.get("/users/top", top_users, "topusers");
+    router.get("/users/detail", user_detail_info, "userdetails");
+    router.get("/items/top", top_items, "topitems");
+    router.get("/items/all", all_items, "allitems");
+    router.get("/purchases/global", global_log, "globallog");
+    router.get("/purchases/personal", personal_log, "personallog");
     router.post("/users", add_user, "adduser");
     router.post("/purchases", simple_purchase, "addsimplepurchase");
 
@@ -207,6 +213,31 @@ pub mod responsehandlers {
         };
     }
 
+    pub fn top_items(req: &mut iron::request::Request) -> IronResult<Response> {
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let dat = datholder.read().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersTopPersonalDrinks = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::TopPersonalDrinks(param));
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                        total_count: 0,
+                        from: 0,
+                        to: 0,
+                        results: Vec::new(),
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
     pub fn all_users(req: &mut iron::request::Request) -> IronResult<Response> {
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let dat = datholder.read().unwrap();
@@ -232,8 +263,129 @@ pub mod responsehandlers {
         };
     }
 
-    pub fn top_users(backend: &RwLock<Backend>, req: &mut iron::request::Request) -> IronResult<Response> {
-        Ok(Response::with((iron::status::Ok, "Hello World")))
+    pub fn all_items(req: &mut iron::request::Request) -> IronResult<Response> {
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let dat = datholder.read().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAllItems = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::AllItems(param));
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                        total_count: 0,
+                        from: 0,
+                        to: 0,
+                        results: Vec::new(),
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+    pub fn user_detail_info(req: &mut iron::request::Request) -> IronResult<Response> {
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let dat = datholder.read().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersDetailInfoForUser = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::DetailInfoForUser(param));
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                        total_count: 0,
+                        from: 0,
+                        to: 0,
+                        results: Vec::new(),
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+    pub fn personal_log(req: &mut iron::request::Request) -> IronResult<Response> {
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let dat = datholder.read().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersPurchaseLogPersonal = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::PurchaseLogPersonal(param));
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                        total_count: 0,
+                        from: 0,
+                        to: 0,
+                        results: Vec::new(),
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+    pub fn global_log(req: &mut iron::request::Request) -> IronResult<Response> {
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let dat = datholder.read().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersPurchaseLogGlobal = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::PurchaseLogGlobal(param));
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                        total_count: 0,
+                        from: 0,
+                        to: 0,
+                        results: Vec::new(),
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+    pub fn top_users(req: &mut iron::request::Request) -> IronResult<Response> {
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let dat = datholder.read().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersTopUsers = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::TopUsers(param));
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                        total_count: 0,
+                        from: 0,
+                        to: 0,
+                        results: Vec::new(),
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
     }
 }
 
