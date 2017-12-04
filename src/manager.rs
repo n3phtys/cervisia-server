@@ -196,7 +196,7 @@ pub trait RustixReadsPersonal {
 pub struct UserDetailInfo {
     pub consumed: HashMap<String, u32>,
     //pub open_freebies: Vec<Freeby>,
-    pub last_bill_date: u64,
+    pub last_bill_date: i64,
     pub last_bill_cost: u32,
     pub currently_cost: u32,
 }
@@ -305,7 +305,48 @@ impl ServableRustix for ServableRustixImpl {
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
 
             },
-            DetailInfoForUser(param) => unimplemented!(),
+            DetailInfoForUser(param) => {
+
+                let now : i64 = server::current_time_millis();
+                let three_months_ago : i64 = now - (90i64 * 24i64 * 3_600_000i64);
+
+                let bill = backend.datastore.bills.last();
+
+                let xs = backend.datastore.personal_log_filtered(param.user_id, three_months_ago, now);
+
+                let mut hm : HashMap<String, u32> = HashMap::new();
+                let mut cost = 0u32;
+
+                for x in xs {
+                    let itemname = backend.datastore.users.get(x.get_user_id()).unwrap().username.to_string();
+                    let itemname2 = itemname.to_string();
+                    let oldv = hm.remove(&itemname).unwrap_or(0u32);
+                    let pcost = backend.datastore.items.get(x.get_item_id()).unwrap().cost_cents;
+                    hm.insert(itemname2, oldv + pcost);
+                }
+
+                let mut previouscost = 0u32;
+
+                if bill.is_some() {
+                    let allmap = bill.unwrap();
+                    for (user_tuple, cost_map) in &allmap.sum_of_cost_hash_map {
+                        for (item_tuple, cost) in cost_map {
+                            previouscost += cost;
+                        }
+                    }
+                }
+
+
+                let result = UserDetailInfo {
+                    consumed: hm,
+                    last_bill_date: bill.map(|b|b.timestamp).unwrap_or(0i64),
+                    last_bill_cost: previouscost,
+                    currently_cost: cost,
+                };
+
+                return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
+
+            },
             TopPersonalDrinks(param) => {
 
                 let xs = backend.datastore.top_item_ids(param.user_id, param.n);
