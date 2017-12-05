@@ -47,7 +47,7 @@ impl Key for SharedBackend {
 }
 
 
-pub fn build_server(port: u16, backend: Option<Backend>) -> iron::Listening {
+pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Listening {
     let mut router = Router::new();
 
 
@@ -76,12 +76,12 @@ pub fn build_server(port: u16, backend: Option<Backend>) -> iron::Listening {
 
         let _ = mount
             .mount("/api/", chain)
-            .mount("/", Static::new(Path::new("web/")))
+            .mount("/", Static::new(Path::new(&config.web_path)))
         ;
     }
 
 
-    let mut serv = Iron::new(mount).http(format!("localhost:{}", port)).unwrap();
+    let mut serv = Iron::new(mount).http(format!("localhost:{}", config.server_port)).unwrap();
     return serv;
 }
 
@@ -403,7 +403,7 @@ pub fn execute_cervisia_server(with_config: &ServerConfig,
 
     info!("Building server");
 
-    let mut server = build_server(with_config.server_port, backend);
+    let mut server = build_server(with_config, backend);
 
     println!("Having built server");
 
@@ -579,6 +579,7 @@ mod tests {
             email_password: String::new(),
             top_items_per_user: 4,
             server_port: get_and_increment_port(),
+            web_path: "web/".to_string(),
         };
     }
 
