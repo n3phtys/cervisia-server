@@ -356,11 +356,16 @@ impl ServableRustix for ServableRustixImpl {
                 }
 
 
-                let result = UserDetailInfo {
-                    consumed: hm,
-                    last_bill_date: bill.map(|b|b.timestamp).unwrap_or(0i64),
-                    last_bill_cost: previouscost,
-                    currently_cost: cost,
+                let result: PaginatedResult<UserDetailInfo> = PaginatedResult {
+                    total_count: 1,
+                    from: 0,
+                    to: 1,
+                    results: vec![UserDetailInfo {
+                        consumed: hm,
+                        last_bill_date: bill.map(|b|b.timestamp).unwrap_or(0i64),
+                        last_bill_cost: previouscost,
+                        currently_cost: cost,
+                    }],
                 };
 
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
