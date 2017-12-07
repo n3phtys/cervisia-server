@@ -5,9 +5,15 @@ use std::vec::*;
 use server;
 use server::RefreshedData;
 use std::collections::*;
+use serde_json;
+use std;
+use rustix_bl::rustix_event_shop;
+use std::sync::RwLock;
+use rand::{Rng, SeedableRng, StdRng};
+use rustix_bl::rustix_backend::*;
+use server::Backend;
 
 
-type Backend = rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>;
 
 
 #[derive(Serialize, Deserialize)]
@@ -488,6 +494,47 @@ impl ServableRustix for ServableRustixImpl {
 }
 
 
+
+pub fn fill_backend_with_medium_test_data(backend: &mut Backend) -> () {
+    let mut back = backend;
+
+    (*back).create_user("Gruin".to_string());
+    (*back).create_user("Vall".to_string());
+    (*back).create_user("rad(i)".to_string());
+
+    for i in 0..50 {
+        (*back).create_user("GenUser #".to_string() + &i.to_string());
+    }
+
+    (*back).create_item(
+        "Club Mate".to_string(),
+        100,
+        Some("without alcohol".to_string()),
+    );
+    (*back).create_item("Pils".to_string(), 95, Some("Beer".to_string()));
+    (*back).create_item("Whiskey".to_string(), 1200, Some("Liquor".to_string()));
+    (*back).create_item("Schirker".to_string(), 1100, Some("Liquor".to_string()));
+    (*back).create_item("Kräussen".to_string(), 1100, Some("Beer".to_string()));
+
+
+    let seed: &[_] = &[42];
+    let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+
+    let mut timestamp_counter = 12345678i64;
+    (*back).purchase(0, 2, timestamp_counter);
+
+    //random purchases for the existing users
+    for user_id in 0..((*back).datastore.users.len() as u32) {
+        let nr_of_purchases: u32 = rng.gen_range(0u32, 5u32);
+        for _ in 0..nr_of_purchases {
+            timestamp_counter += 1;
+            let item_id: u32 = rng.gen_range(0u32, (*back).datastore.items.len() as u32);
+            (*back).purchase(user_id, item_id, timestamp_counter);
+        }
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use serde_json;
@@ -501,44 +548,4 @@ pub mod tests {
     use server::Backend;
 
     pub fn fill_not(backend: &mut Backend) -> () {}
-
-    pub fn fill_backend_with_medium_test_data(backend: &mut Backend) -> () {
-        let mut back = backend;
-
-        (*back).create_user("Gruin".to_string());
-        (*back).create_user("Vall".to_string());
-        (*back).create_user("rad(i)".to_string());
-
-        for i in 0..50 {
-            (*back).create_user("GenUser #".to_string() + &i.to_string());
-        }
-
-        (*back).create_item(
-            "Club Mate".to_string(),
-            100,
-            Some("without alcohol".to_string()),
-        );
-        (*back).create_item("Pils".to_string(), 95, Some("Beer".to_string()));
-        (*back).create_item("Whiskey".to_string(), 1200, Some("Liquor".to_string()));
-        (*back).create_item("Schirker".to_string(), 1100, Some("Liquor".to_string()));
-        (*back).create_item("Kräussen".to_string(), 1100, Some("Beer".to_string()));
-
-
-        let seed: &[_] = &[42];
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-
-        let mut timestamp_counter = 12345678i64;
-        (*back).purchase(0, 2, timestamp_counter);
-
-        //random purchases for the existing users
-        for user_id in 0..((*back).datastore.users.len() as u32) {
-            let nr_of_purchases: u32 = rng.gen_range(0u32, 5u32);
-            for _ in 0..nr_of_purchases {
-                timestamp_counter += 1;
-                let item_id: u32 = rng.gen_range(0u32, (*back).datastore.items.len() as u32);
-                (*back).purchase(user_id, item_id, timestamp_counter);
-            }
-        }
-    }
 }
