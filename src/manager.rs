@@ -310,11 +310,12 @@ impl ServableRustix for ServableRustixImpl {
                 let mut v: Vec<rustix_bl::datastore::User> = Vec::new();
                 let mut total = 0u32;
 
-
-                for id in &(*backend).datastore.top_users {
+                let xs = backend.datastore.top_user_ids(param.n);
+                
+                for id in xs {
                     //if user.username.contains(param.count_pars.searchterm) {
                     total += 1;
-                    match backend.datastore.users.get(id) {
+                    match backend.datastore.users.get(&id) {
                         Some(user) => v.push(user.clone()),
                         None => panic!("Userkey for topuser not found in user hashmap"),
                     }
@@ -527,6 +528,46 @@ pub fn fill_backend_with_medium_test_data(backend: &mut Backend) -> () {
     //random purchases for the existing users
     for user_id in 0..((*back).datastore.users.len() as u32) {
         let nr_of_purchases: u32 = rng.gen_range(0u32, 5u32);
+        for _ in 0..nr_of_purchases {
+            timestamp_counter += 1;
+            let item_id: u32 = rng.gen_range(0u32, (*back).datastore.items.len() as u32);
+            (*back).purchase(user_id, item_id, timestamp_counter);
+        }
+    }
+}
+
+pub fn fill_backend_with_large_test_data(backend: &mut Backend) -> () {
+    let mut back = backend;
+
+    (*back).create_user("Gruin".to_string());
+    (*back).create_user("Vall".to_string());
+    (*back).create_user("rad(i)".to_string());
+
+    for i in 0..500 {
+        (*back).create_user("GenUser #".to_string() + &i.to_string());
+    }
+
+    (*back).create_item(
+        "Club Mate".to_string(),
+        100,
+        Some("without alcohol".to_string()),
+    );
+    (*back).create_item("Pils".to_string(), 95, Some("Beer".to_string()));
+    (*back).create_item("Whiskey".to_string(), 1200, Some("Liquor".to_string()));
+    (*back).create_item("Schirker".to_string(), 1100, Some("Liquor".to_string()));
+    (*back).create_item("Kräussen".to_string(), 1100, Some("Beer".to_string()));
+
+
+    let seed: &[_] = &[42];
+    let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+
+    let mut timestamp_counter = 12345678i64;
+    (*back).purchase(0, 2, timestamp_counter);
+
+    //random purchases for the existing users
+    for user_id in 0..((*back).datastore.users.len() as u32) {
+        let nr_of_purchases: u32 = rng.gen_range(0u32, 15u32);
         for _ in 0..nr_of_purchases {
             timestamp_counter += 1;
             let item_id: u32 = rng.gen_range(0u32, (*back).datastore.items.len() as u32);

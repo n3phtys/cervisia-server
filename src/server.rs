@@ -35,6 +35,7 @@ use persistent;
 use persistent::State;
 use iron::typemap::Key;
 use manager::fill_backend_with_medium_test_data;
+use manager::fill_backend_with_large_test_data;
 
 use params::{Params, Value};
 
@@ -74,7 +75,7 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
 
         let mut backend = backend.unwrap_or(rustix_bl::build_transient_backend());
         if fill {
-            fill_backend_with_medium_test_data(&mut backend); //TODO: replace for production
+            fill_backend_with_large_test_data(&mut backend); //TODO: replace for production
         }
 
         let state = State::<SharedBackend>::both(backend);
