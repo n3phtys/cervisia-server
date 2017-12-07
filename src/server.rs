@@ -70,9 +70,12 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     {
         let mut chain = Chain::new(router);
 
-        let mut backend = backend.unwrap_or(rustix_bl::build_transient_backend());
+        let fill = backend.is_none();
 
-        fill_backend_with_medium_test_data(&mut backend); //TODO: replace for production
+        let mut backend = backend.unwrap_or(rustix_bl::build_transient_backend());
+        if fill {
+            fill_backend_with_medium_test_data(&mut backend); //TODO: replace for production
+        }
 
         let state = State::<SharedBackend>::both(backend);
 
@@ -758,6 +761,7 @@ mod tests {
             assert_eq!(parsedjson.results.len(), 54);
         }
     }
+
     #[test]
     fn making_a_simple_purchase_works() {
         let (server, config) = build_default_server(fill_backend_with_medium_test_data);
@@ -822,7 +826,5 @@ mod tests {
         assert!(!unpacked.refreshed_data.DetailInfoForUser.is_null());
         assert!(unpacked.refreshed_data.OutgoingFreebies.is_null());
         assert!(unpacked.refreshed_data.OpenFFAFreebies.is_null());
-
-
     }
 }
