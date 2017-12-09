@@ -12,6 +12,8 @@ use std::sync::RwLock;
 use rand::{Rng, SeedableRng, StdRng};
 use rustix_bl::rustix_backend::*;
 use server::Backend;
+use std::ops::Try;
+use std::option::NoneError;
 
 
 
@@ -207,6 +209,74 @@ pub struct UserDetailInfo {
     pub currently_cost: u32,
 }
 
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum Purchase {
+    UndoPurchase { unique_id: u64 },
+    SimplePurchase {
+        unique_id: u64,
+        timestamp_epoch_millis: i64,
+        item: rustix_bl::datastore::Item,
+        consumer: rustix_bl::datastore::User,
+    },
+}
+
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MyNoneError {
+
+}
+
+impl std::fmt::Display for MyNoneError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "MyNoneError()")
+    }
+}
+
+impl From<NoneError> for MyNoneError {
+    fn from(_: NoneError) -> Self {
+        return MyNoneError {};
+    }
+}
+
+impl std::error::Error for MyNoneError {
+    fn description(&self) -> &str {
+        return "element not found";
+    }
+}
+
+pub trait ErrorUnwrap<T> {
+    fn unwrap_or_error(self) -> Result<T, Box<MyNoneError>>;
+}
+
+impl<T> ErrorUnwrap<T> for Option<T> {
+    fn unwrap_or_error(self) -> Result<T, Box<MyNoneError>> {
+        if (self.is_some()) {
+            return Ok(self.unwrap());
+        } else {
+            return Err(Box::new(MyNoneError{}))
+        }
+    }
+}
+
+fn enrich_purchase(incoming: &rustix_bl::datastore::Purchase, datastore: &rustix_bl::datastore::Datastore) -> std::result::Result<Purchase, Box<std::error::Error>> {
+    return match *incoming {
+        rustix_bl::datastore::Purchase::UndoPurchase{ref unique_id} => {
+            Ok(Purchase::UndoPurchase {
+                unique_id : *unique_id,
+            })
+        },
+        rustix_bl::datastore::Purchase::SimplePurchase{ref unique_id, ref timestamp_epoch_millis, ref item_id, ref consumer_id} => {
+            Ok(Purchase::SimplePurchase {
+                unique_id: *unique_id,
+                timestamp_epoch_millis: *timestamp_epoch_millis,
+                item: datastore.items.get(item_id).unwrap_or_error()?.clone(),
+                consumer: datastore.users.get(consumer_id).unwrap_or_error()?.clone(),
+            })
+        },
+    }
+}
+
 pub trait RustixWrites {
     fn simple_purchase();
     fn special_purchase();
@@ -399,11 +469,18 @@ impl ServableRustix for ServableRustixImpl {
 
                 let xs = backend.datastore.global_log_filtered(param.count_pars.millis_start, param.count_pars.millis_end);
 
-                let result: PaginatedResult<rustix_bl::datastore::Purchase> = PaginatedResult {
+                let mut xv : Vec<Purchase> = Vec::new();
+
+                for r in xs.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize) {
+                    xv.push(enrich_purchase(r, &backend.datastore)?);
+                }
+
+
+                let result: PaginatedResult<Purchase> = PaginatedResult {
                     total_count: xs.len() as u32,
                     from: param.pagination.start_inclusive,
                     to: param.pagination.end_exclusive,
-                    results: xs.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize).map(|r|r.clone()).collect(),
+                    results: xv,
                 };
 
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
@@ -413,11 +490,17 @@ impl ServableRustix for ServableRustixImpl {
 
                 let xs = backend.datastore.personal_log_filtered(param.count_pars.user_id, param.count_pars.millis_start, param.count_pars.millis_end);
 
-                let result: PaginatedResult<rustix_bl::datastore::Purchase> = PaginatedResult {
+                let mut xv : Vec<Purchase> = Vec::new();
+
+                for r in xs.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize) {
+                    xv.push(enrich_purchase(r, &backend.datastore)?);
+                }
+
+                let result: PaginatedResult<Purchase> = PaginatedResult {
                     total_count: xs.len() as u32,
                     from: param.pagination.start_inclusive,
                     to: param.pagination.end_exclusive,
-                    results: xs.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize).map(|r|r.clone()).collect(),
+                    results: xv,
                 };
 
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
