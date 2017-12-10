@@ -449,6 +449,7 @@ pub struct RefreshedData {
     pub AllUsers: serde_json::Value,
     pub AllItems: serde_json::Value,
     pub PurchaseLogGlobal: serde_json::Value,
+    pub LastPurchases: serde_json::Value,
     pub BillsCount: serde_json::Value,
     pub Bills: serde_json::Value,
     pub OpenFFAFreebies: serde_json::Value,

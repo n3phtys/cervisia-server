@@ -467,13 +467,20 @@ impl ServableRustix for ServableRustixImpl {
             },
             PurchaseLogGlobal(param) => {
 
-                let xs = backend.datastore.global_log_filtered(param.count_pars.millis_start, param.count_pars.millis_end);
+                let mut xs = backend.datastore.global_log_filtered(param.count_pars.millis_start, param.count_pars.millis_end).to_vec();
+
+
+                xs.sort_by(|x,y| y.get_timestamp().cmp(x.get_timestamp()));
 
                 let mut xv : Vec<Purchase> = Vec::new();
+
+
+
 
                 for r in xs.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize) {
                     xv.push(enrich_purchase(r, &backend.datastore)?);
                 }
+
 
 
                 let result: PaginatedResult<Purchase> = PaginatedResult {
@@ -488,13 +495,17 @@ impl ServableRustix for ServableRustixImpl {
             },
             PurchaseLogPersonal(param) => {
 
-                let xs = backend.datastore.personal_log_filtered(param.count_pars.user_id, param.count_pars.millis_start, param.count_pars.millis_end);
+                let mut xs = backend.datastore.personal_log_filtered(param.count_pars.user_id, param.count_pars.millis_start, param.count_pars.millis_end);
+
+                xs.sort_by(|x,y| y.get_timestamp().cmp(x.get_timestamp()));
+
 
                 let mut xv : Vec<Purchase> = Vec::new();
 
                 for r in xs.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize) {
                     xv.push(enrich_purchase(r, &backend.datastore)?);
                 }
+
 
                 let result: PaginatedResult<Purchase> = PaginatedResult {
                     total_count: xs.len() as u32,
@@ -528,6 +539,7 @@ impl ServableRustix for ServableRustixImpl {
                     AllUsers: all_list,
                     AllItems: serde_json::Value::Null,
                     PurchaseLogGlobal: serde_json::Value::Null,
+                    LastPurchases: serde_json::Value::Null,
                     BillsCount: serde_json::Value::Null,
                     Bills: serde_json::Value::Null,
                     OpenFFAFreebies: serde_json::Value::Null,
@@ -551,6 +563,11 @@ impl ServableRustix for ServableRustixImpl {
                 let detail_info = Self::query_read(&*backend, DetailInfoForUser(app_state.personal_detail_infos))?;
                 //refresh global log
                 let global_log = Self::query_read(&*backend, PurchaseLogGlobal(app_state.global_log))?;
+                //refresh last log
+                let last_log = Self::query_read(&*backend, PurchaseLogGlobal( ParametersPurchaseLogGlobal{
+                    count_pars: ParametersPurchaseLogGlobalCount { millis_start: server::current_time_millis() - (1000i64 * 60 * 60 * 24), millis_end: server::current_time_millis() + 1000i64 },
+                    pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 5 },
+                } ))?;
                 //refresh personal log
                 let personal_log = Self::query_read(&*backend, PurchaseLogPersonal(app_state.personal_log))?;
                 //do not refresh freebies (do that on-demand)
@@ -563,6 +580,7 @@ impl ServableRustix for ServableRustixImpl {
                     AllUsers: serde_json::Value::Null,
                     AllItems: serde_json::Value::Null,
                     PurchaseLogGlobal: global_log,
+                    LastPurchases: last_log,
                     BillsCount: serde_json::Value::Null,
                     Bills: serde_json::Value::Null,
                     OpenFFAFreebies: serde_json::Value::Null,
