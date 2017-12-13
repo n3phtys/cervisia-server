@@ -25,6 +25,7 @@ pub struct ServerConfig {
     pub top_items_per_user: u16,
     //default = 4
     pub server_port: u16,
+    pub host: String,
     //default = 8080
     pub web_path: String,
     //default = "web/""
@@ -40,6 +41,7 @@ impl Default for ServerConfig {
             email_password: String::new(),
             top_items_per_user: 4,
             server_port: 8081,
+            host: "localhost".to_string(),
             web_path: "web/".to_string(),
         };
     }

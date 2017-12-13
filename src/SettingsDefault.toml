@@ -3,5 +3,6 @@ email_server = ""
 email_username = ""
 email_password = ""
 top_items_per_user = 4
+host = "localhost"
 server_port = 8080
 web_path = "web/"

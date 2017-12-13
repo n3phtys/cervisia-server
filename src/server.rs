@@ -88,8 +88,9 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
         ;
     }
 
-
-    let mut serv = Iron::new(mount).http(format!("localhost:{}", config.server_port)).unwrap();
+    let url = format!("{}:{}", config.host, config.server_port);
+    println!("Starting server under host and port = {}", &url);
+    let mut serv = Iron::new(mount).http(url).unwrap();
     return serv;
 }
 
@@ -587,6 +588,7 @@ mod tests {
             email_username: String::new(),
             email_password: String::new(),
             top_items_per_user: 4,
+            host: "localhost".to_string(),
             server_port: get_and_increment_port(),
             web_path: "web/".to_string(),
         };
