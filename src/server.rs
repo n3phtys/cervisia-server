@@ -62,6 +62,7 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     router.get("/purchases/personal", personal_log, "personallog");
     router.post("/users", add_user, "adduser");
     router.post("/purchases", simple_purchase, "addsimplepurchase");
+    router.post("/purchases/cart", cart_purchase, "addcartpurchase");
 
     router.get("/helloworld", hello_world, "helloworld");
 
@@ -122,6 +123,19 @@ pub mod responsehandlers {
     }
 
     #[derive(Serialize, Deserialize, Debug)]
+    pub struct KeyValue {
+        pub key: u32,
+        pub value: u32,
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct MakeCartPurchase {
+        pub user_id: u32,
+        pub items: Vec<KeyValue>,
+        pub specials: Vec<String>,
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
     pub struct UndoPurchase { pub unique_id: u64 }
 
     #[derive(Serialize, Deserialize, Debug)]
@@ -165,6 +179,55 @@ pub mod responsehandlers {
                     item_id: parsed_body.item_id,
                     timestamp: current_time_millis(),
                 });
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                        error_message: None,
+                        is_success: true,
+                        content: Some(SuccessContent {
+                            timestamp_epoch_millis: current_time_millis(),
+                            refreshed_data: sux,
+                        }),
+                    }).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                        error_message: Some(err.description().to_string()),
+                        is_success: false,
+                        content: None,
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+
+    pub fn cart_purchase(req: &mut iron::request::Request) -> IronResult<Response> {
+        let posted_body = extract_body(req);
+        println!("posted_body = {:?}", posted_body);
+        let parsed_body: MakeCartPurchase = serde_json::from_str(&posted_body).unwrap();
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let mut dat = datholder.write().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
+
+                let mut item_ids : Vec<u32> = Vec::new();
+                for kv in parsed_body.items {
+                    for i in 1.. kv.value {
+                        item_ids.push(kv.key);
+                    }
+                }
+
+                let event = rustix_bl::rustix_event_shop::BLEvents::MakeShoppingCartPurchase {
+                    user_id: parsed_body.user_id,
+                    specials: parsed_body.specials,
+                    item_ids: item_ids,
+                    timestamp: current_time_millis(),
+                };
+
+                let result = ServableRustixImpl::check_apply_write(&mut dat, param, event);
 
                 match result {
                     Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
