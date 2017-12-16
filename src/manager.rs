@@ -751,7 +751,7 @@ pub fn fill_backend_with_large_test_data(backend: &mut Backend) -> () {
         }
     }
 
-    (*back).create_bill(timestamp_counter + 1000000i64, UserGroup::AllUsers, "some bill comment".to_string());
+    (*back).create_bill(timestamp_counter + (1000i64 * 3600 * 24 * 365 * 20), UserGroup::AllUsers, "some bill comment".to_string());
 }
 
 #[cfg(test)]
