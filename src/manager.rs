@@ -344,7 +344,9 @@ impl ServableRustix for ServableRustixImpl {
                 let mut v: Vec<rustix_bl::datastore::Item> = Vec::new();
                 let total = xs.len() as u32;
                 for id in xs {
-                    v.push(backend.datastore.items.get(&id).unwrap().clone());
+                    if backend.datastore.items.contains_key(&id) {
+                        v.push(backend.datastore.items.get(&id).unwrap().clone());
+                    }
                 }
 
                 let result: PaginatedResult<rustix_bl::datastore::Item> = PaginatedResult {
@@ -367,7 +369,9 @@ impl ServableRustix for ServableRustixImpl {
                 let mut v: Vec<rustix_bl::datastore::User> = Vec::new();
                 let total = xs.len() as u32;
                 for id in xs {
-                    v.push(backend.datastore.users.get(&id).unwrap().clone());
+                    if backend.datastore.users.get(&id).is_some() {
+                        v.push(backend.datastore.users.get(&id).unwrap().clone());
+                    }
                 }
 
                 let result: PaginatedResult<rustix_bl::datastore::User> = PaginatedResult {
@@ -420,11 +424,13 @@ impl ServableRustix for ServableRustixImpl {
                 let mut cost = 0u32;
 
                 for x in xs {
-                    let itemname = backend.datastore.users.get(x.get_user_id()).unwrap().username.to_string();
-                    let itemname2 = itemname.to_string();
-                    let oldv = hm.remove(&itemname).unwrap_or(0u32);
-                    let pcost = backend.datastore.items.get(x.get_item_id()).unwrap().cost_cents;
-                    hm.insert(itemname2, oldv + pcost);
+                    if backend.datastore.users.get(x.get_user_id()).is_some() && backend.datastore.items.get(x.get_item_id()).is_some() {
+                        let itemname = backend.datastore.users.get(x.get_user_id()).unwrap().username.to_string();
+                        let itemname2 = itemname.to_string();
+                        let oldv = hm.remove(&itemname).unwrap_or(0u32);
+                        let pcost = backend.datastore.items.get(x.get_item_id()).unwrap().cost_cents;
+                        hm.insert(itemname2, oldv + pcost);
+                    }
                 }
 
                 let mut previouscost = 0u32;

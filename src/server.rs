@@ -108,9 +108,9 @@ pub mod responsehandlers {
 
     #[derive(Serialize, Deserialize, Debug)]
     pub struct CreateItem {
-        itemname: String,
-        price_cents: u32,
-        category: Option<String>,
+        pub name: String,
+        pub price_cents: u32,
+        pub category: Option<String>,
     }
 
     #[derive(Serialize, Deserialize, Debug)]
@@ -121,7 +121,7 @@ pub mod responsehandlers {
         pub name: String,
         pub item_id: u32,
         pub category: Option<String>,
-        pub cost_cents: u32,
+        pub price_cents: u32,
     }
 
     #[derive(Serialize, Deserialize, Debug)]
@@ -434,7 +434,7 @@ pub mod responsehandlers {
                 let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
 
                 let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::CreateItem {
-                    itemname: parsed_body.itemname,
+                    itemname: parsed_body.name,
                     price_cents: parsed_body.price_cents,
                     category: parsed_body.category,
                 });
@@ -474,7 +474,7 @@ pub mod responsehandlers {
                 let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::UpdateItem {
                     item_id: parsed_body.item_id,
                     itemname: parsed_body.name,
-                    price_cents: parsed_body.cost_cents,
+                    price_cents: parsed_body.price_cents,
                     category: parsed_body.category,
                 });
 
