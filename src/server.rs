@@ -60,7 +60,9 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     router.get("/items/all", all_items, "allitems");
     router.get("/purchases/global", global_log, "globallog");
     router.get("/purchases/personal", personal_log, "personallog");
+    router.get("/bills", get_bills, "getbills");
     router.post("/users", add_user, "adduser");
+    router.post("/items", add_item, "additem");
     router.post("/purchases", simple_purchase, "addsimplepurchase");
     router.post("/purchases/cart", cart_purchase, "addcartpurchase");
 
@@ -285,6 +287,44 @@ pub mod responsehandlers {
         };
     }
 
+    pub fn add_item(req: &mut iron::request::Request) -> IronResult<Response> {
+        let posted_body = extract_body(req);
+        println!("posted_body = {:?}", posted_body);
+        let parsed_body: CreateItem = serde_json::from_str(&posted_body).unwrap();
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let mut dat = datholder.write().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::CreateItem {
+                    itemname: parsed_body.itemname,
+                    price_cents: parsed_body.price_cents,
+                    category: parsed_body.category,
+                });
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                        error_message: None,
+                        is_success: true,
+                        content: Some(SuccessContent {
+                            timestamp_epoch_millis: current_time_millis(),
+                            refreshed_data: sux,
+                        }),
+                    }).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                        error_message: Some(err.description().to_string()),
+                        is_success: false,
+                        content: None,
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
     pub fn top_items(req: &mut iron::request::Request) -> IronResult<Response> {
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let dat = datholder.read().unwrap();
@@ -399,6 +439,33 @@ pub mod responsehandlers {
                 match result {
                     Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
                     Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                        total_count: 0,
+                        from: 0,
+                        to: 0,
+                        results: Vec::new(),
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+    pub fn get_bills(req: &mut iron::request::Request) -> IronResult<Response> {
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let dat = datholder.read().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersBills = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::Bills(param));
+
+                println!("Bills are queried with result = {:?}", result);
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::Bill> {
                         total_count: 0,
                         from: 0,
                         to: 0,
@@ -775,7 +842,11 @@ mod tests {
             all_users: ParametersAllUsers { count_pars: ParametersAllUsersCount { searchterm: String::new() }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 1_000_000 } },
             all_items: ParametersAllItems { count_pars: ParametersAllItemsCount { searchterm: String::new() }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
             global_log: ParametersPurchaseLogGlobal { count_pars: ParametersPurchaseLogGlobalCount { millis_start: 0, millis_end: 0 }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
-            bills: ParametersBills { count_pars: ParametersBillsCount {}, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
+            bills: ParametersBills { count_pars: ParametersBillsCount {
+                start_inclusive: 0,
+                end_exclusive: 0,
+                scope_user_id: None,
+            }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
             open_ffa_freebies: ParametersOpenFFAFreebies {},
             top_personal_drinks: ParametersTopPersonalDrinks { user_id: 0, n: 0 },
             personal_log: ParametersPurchaseLogPersonal {
@@ -849,7 +920,11 @@ mod tests {
             all_users: ParametersAllUsers { count_pars: ParametersAllUsersCount { searchterm: String::new() }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 1_000_000 } },
             all_items: ParametersAllItems { count_pars: ParametersAllItemsCount { searchterm: String::new() }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
             global_log: ParametersPurchaseLogGlobal { count_pars: ParametersPurchaseLogGlobalCount { millis_start: 0, millis_end: 0 }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
-            bills: ParametersBills { count_pars: ParametersBillsCount {}, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
+            bills: ParametersBills { count_pars: ParametersBillsCount {
+                start_inclusive: 0,
+                end_exclusive: 0,
+                scope_user_id: None,
+            }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
             open_ffa_freebies: ParametersOpenFFAFreebies {},
             top_personal_drinks: ParametersTopPersonalDrinks { user_id: 0, n: 0 },
             personal_log: ParametersPurchaseLogPersonal {

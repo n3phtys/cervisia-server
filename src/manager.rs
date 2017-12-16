@@ -108,7 +108,11 @@ pub struct ParametersPurchaseLogGlobal {
 
 
 #[derive(Serialize, Deserialize)]
-pub struct ParametersBillsCount {}
+pub struct ParametersBillsCount {
+    pub start_inclusive: i64,
+    pub end_exclusive: i64,
+    pub scope_user_id: Option<u32>,
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct ParametersBills {
@@ -128,6 +132,8 @@ pub struct ParametersTopPersonalDrinks {
     pub user_id: u32,
     pub n: u8,
 }
+
+
 
 #[derive(Serialize, Deserialize)]
 pub struct ParametersPurchaseLogPersonalCount {
@@ -517,6 +523,35 @@ impl ServableRustix for ServableRustixImpl {
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
 
             },
+            Bills(param) => {
+
+
+                let mut xs = backend.datastore.bills_filtered(param.count_pars.scope_user_id, param.count_pars.start_inclusive, param.count_pars.end_exclusive).to_vec();
+
+
+                xs.sort_by(|x,y| y.timestamp.cmp(&x.timestamp));
+
+
+                let result: PaginatedResult<Bill> = PaginatedResult {
+                    total_count: xs.len() as u32,
+                    from: param.pagination.start_inclusive,
+                    to: param.pagination.end_exclusive,
+                    results: xs,
+                };
+
+                println!("Serializing");
+
+                let a = &serde_json::to_string(&result)?;
+
+                println!("Result a = {:?}", a);
+
+                let b = serde_json::from_str(a)?;
+
+                println!("Result b = {:?}", b);
+
+                return Ok(b);
+
+            },
             _ => unimplemented!()
         }
     }
@@ -715,6 +750,8 @@ pub fn fill_backend_with_large_test_data(backend: &mut Backend) -> () {
             (*back).purchase(user_id, item_id, timestamp_counter);
         }
     }
+
+    (*back).create_bill(timestamp_counter + 1000000i64, UserGroup::AllUsers, "some bill comment".to_string());
 }
 
 #[cfg(test)]
