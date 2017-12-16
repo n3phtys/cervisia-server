@@ -63,6 +63,10 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     router.get("/bills", get_bills, "getbills");
     router.post("/users", add_user, "adduser");
     router.post("/items", add_item, "additem");
+    router.post("/users/update", update_user, "updateuser");
+    router.post("/items/update", update_item, "updateitem");
+    router.post("/users/delete", delete_user, "deleteuser");
+    router.post("/items/delete", delete_item, "deleteitem");
     router.post("/purchases", simple_purchase, "addsimplepurchase");
     router.post("/purchases/cart", cart_purchase, "addcartpurchase");
 
@@ -111,6 +115,22 @@ pub mod responsehandlers {
 
     #[derive(Serialize, Deserialize, Debug)]
     pub struct CreateUser { pub username: String }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct UpdateItem {
+        pub name: String,
+        pub item_id: u32,
+        pub category: Option<String>,
+        pub cost_cents: u32,
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct UpdateUser {
+        pub username: String,
+        pub external_user_id: Option<String>,
+        pub user_id: u32,
+        pub is_billed: bool,
+        pub highlight_in_ui: bool, }
 
     #[derive(Serialize, Deserialize, Debug)]
     pub struct DeleteItem { pub item_id: u32 }
@@ -287,6 +307,120 @@ pub mod responsehandlers {
         };
     }
 
+
+    pub fn delete_user(req: &mut iron::request::Request) -> IronResult<Response> {
+        let posted_body = extract_body(req);
+        println!("posted_body = {:?}", posted_body);
+        let parsed_body: DeleteUser = serde_json::from_str(&posted_body).unwrap();
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let mut dat = datholder.write().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::DeleteUser {
+                    user_id: parsed_body.user_id,
+                });
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                        error_message: None,
+                        is_success: true,
+                        content: Some(SuccessContent {
+                            timestamp_epoch_millis: current_time_millis(),
+                            refreshed_data: sux,
+                        }),
+                    }).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                        error_message: Some(err.description().to_string()),
+                        is_success: false,
+                        content: None,
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+
+    pub fn delete_item(req: &mut iron::request::Request) -> IronResult<Response> {
+        let posted_body = extract_body(req);
+        println!("posted_body = {:?}", posted_body);
+        let parsed_body: DeleteItem = serde_json::from_str(&posted_body).unwrap();
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let mut dat = datholder.write().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::DeleteItem {
+                    item_id: parsed_body.item_id,
+                });
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                        error_message: None,
+                        is_success: true,
+                        content: Some(SuccessContent {
+                            timestamp_epoch_millis: current_time_millis(),
+                            refreshed_data: sux,
+                        }),
+                    }).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                        error_message: Some(err.description().to_string()),
+                        is_success: false,
+                        content: None,
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+    pub fn update_user(req: &mut iron::request::Request) -> IronResult<Response> {
+        let posted_body = extract_body(req);
+        println!("posted_body = {:?}", posted_body);
+        let parsed_body: UpdateUser = serde_json::from_str(&posted_body).unwrap();
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let mut dat = datholder.write().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::UpdateUser {
+                    user_id: parsed_body.user_id,
+                    username: parsed_body.username,
+                    is_billed: parsed_body.is_billed,
+                    is_highlighted: parsed_body.highlight_in_ui,
+                    external_user_id: parsed_body.external_user_id,
+                });
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                        error_message: None,
+                        is_success: true,
+                        content: Some(SuccessContent {
+                            timestamp_epoch_millis: current_time_millis(),
+                            refreshed_data: sux,
+                        }),
+                    }).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                        error_message: Some(err.description().to_string()),
+                        is_success: false,
+                        content: None,
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
     pub fn add_item(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
         println!("posted_body = {:?}", posted_body);
@@ -302,6 +436,45 @@ pub mod responsehandlers {
                 let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::CreateItem {
                     itemname: parsed_body.itemname,
                     price_cents: parsed_body.price_cents,
+                    category: parsed_body.category,
+                });
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                        error_message: None,
+                        is_success: true,
+                        content: Some(SuccessContent {
+                            timestamp_epoch_millis: current_time_millis(),
+                            refreshed_data: sux,
+                        }),
+                    }).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                        error_message: Some(err.description().to_string()),
+                        is_success: false,
+                        content: None,
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+    pub fn update_item(req: &mut iron::request::Request) -> IronResult<Response> {
+        let posted_body = extract_body(req);
+        println!("posted_body = {:?}", posted_body);
+        let parsed_body: UpdateItem = serde_json::from_str(&posted_body).unwrap();
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let mut dat = datholder.write().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::UpdateItem {
+                    item_id: parsed_body.item_id,
+                    itemname: parsed_body.name,
+                    price_cents: parsed_body.cost_cents,
                     category: parsed_body.category,
                 });
 

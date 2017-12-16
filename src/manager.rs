@@ -584,6 +584,120 @@ impl ServableRustix for ServableRustixImpl {
                     OutgoingFreebies: serde_json::Value::Null,
                 })
             },
+            rustix_event_shop::BLEvents::CreateItem{
+                itemname,
+                price_cents,
+                category,
+            } => {
+                let _ = &mut backend.create_item(itemname, price_cents, category);
+
+            let all_list = Self::query_read(&*backend, AllItems(app_state.all_items))?;
+
+                Ok(RefreshedData{
+                    DetailInfoForUser: serde_json::Value::Null,
+                    TopUsers: serde_json::Value::Null,
+                    AllUsers: serde_json::Value::Null,
+                    AllItems: all_list,
+                    PurchaseLogGlobal: serde_json::Value::Null,
+                    LastPurchases: serde_json::Value::Null,
+                    BillsCount: serde_json::Value::Null,
+                    Bills: serde_json::Value::Null,
+                    OpenFFAFreebies: serde_json::Value::Null,
+                    TopPersonalDrinks: serde_json::Value::Null,
+                    PurchaseLogPersonal: serde_json::Value::Null,
+                    IncomingFreebies: serde_json::Value::Null,
+                    OutgoingFreebies: serde_json::Value::Null,
+                })
+            },
+            rustix_event_shop::BLEvents::UpdateUser{user_id, username, is_billed, is_highlighted, external_user_id} => {
+                let username : String = username;
+                let _ = &mut backend.update_user(user_id, username, is_billed, is_highlighted, external_user_id);
+                //refresh only 2 values:
+                //refresh all users
+                let all_list = Self::query_read(&*backend, AllUsers(app_state.all_users))?;
+                //refresh top users
+                let top_list = Self::query_read(&*backend, TopUsers(app_state.top_users))?;
+                Ok(RefreshedData{
+                    DetailInfoForUser: serde_json::Value::Null,
+                    TopUsers: top_list,
+                    AllUsers: all_list,
+                    AllItems: serde_json::Value::Null,
+                    PurchaseLogGlobal: serde_json::Value::Null,
+                    LastPurchases: serde_json::Value::Null,
+                    BillsCount: serde_json::Value::Null,
+                    Bills: serde_json::Value::Null,
+                    OpenFFAFreebies: serde_json::Value::Null,
+                    TopPersonalDrinks: serde_json::Value::Null,
+                    PurchaseLogPersonal: serde_json::Value::Null,
+                    IncomingFreebies: serde_json::Value::Null,
+                    OutgoingFreebies: serde_json::Value::Null,
+                })
+            },
+            rustix_event_shop::BLEvents::UpdateItem{item_id, itemname, price_cents, category} => {
+                let _ = &mut backend.update_item(item_id,itemname, price_cents, category);
+
+                let all_list = Self::query_read(&*backend, AllItems(app_state.all_items))?;
+
+                Ok(RefreshedData{
+                    DetailInfoForUser: serde_json::Value::Null,
+                    TopUsers: serde_json::Value::Null,
+                    AllUsers: serde_json::Value::Null,
+                    AllItems: all_list,
+                    PurchaseLogGlobal: serde_json::Value::Null,
+                    LastPurchases: serde_json::Value::Null,
+                    BillsCount: serde_json::Value::Null,
+                    Bills: serde_json::Value::Null,
+                    OpenFFAFreebies: serde_json::Value::Null,
+                    TopPersonalDrinks: serde_json::Value::Null,
+                    PurchaseLogPersonal: serde_json::Value::Null,
+                    IncomingFreebies: serde_json::Value::Null,
+                    OutgoingFreebies: serde_json::Value::Null,
+                })
+            },
+            rustix_event_shop::BLEvents::DeleteUser{user_id} => {
+                let _ = &mut backend.delete_user(user_id);
+                //refresh only 2 values:
+                //refresh all users
+                let all_list = Self::query_read(&*backend, AllUsers(app_state.all_users))?;
+                //refresh top users
+                let top_list = Self::query_read(&*backend, TopUsers(app_state.top_users))?;
+                Ok(RefreshedData{
+                    DetailInfoForUser: serde_json::Value::Null,
+                    TopUsers: top_list,
+                    AllUsers: all_list,
+                    AllItems: serde_json::Value::Null,
+                    PurchaseLogGlobal: serde_json::Value::Null,
+                    LastPurchases: serde_json::Value::Null,
+                    BillsCount: serde_json::Value::Null,
+                    Bills: serde_json::Value::Null,
+                    OpenFFAFreebies: serde_json::Value::Null,
+                    TopPersonalDrinks: serde_json::Value::Null,
+                    PurchaseLogPersonal: serde_json::Value::Null,
+                    IncomingFreebies: serde_json::Value::Null,
+                    OutgoingFreebies: serde_json::Value::Null,
+                })
+            },
+            rustix_event_shop::BLEvents::DeleteItem{item_id} => {
+                let _ = &mut backend.delete_item(item_id);
+
+                let all_list = Self::query_read(&*backend, AllItems(app_state.all_items))?;
+
+                Ok(RefreshedData{
+                    DetailInfoForUser: serde_json::Value::Null,
+                    TopUsers: serde_json::Value::Null,
+                    AllUsers: serde_json::Value::Null,
+                    AllItems: all_list,
+                    PurchaseLogGlobal: serde_json::Value::Null,
+                    LastPurchases: serde_json::Value::Null,
+                    BillsCount: serde_json::Value::Null,
+                    Bills: serde_json::Value::Null,
+                    OpenFFAFreebies: serde_json::Value::Null,
+                    TopPersonalDrinks: serde_json::Value::Null,
+                    PurchaseLogPersonal: serde_json::Value::Null,
+                    IncomingFreebies: serde_json::Value::Null,
+                    OutgoingFreebies: serde_json::Value::Null,
+                })
+            },
             rustix_event_shop::BLEvents::MakeSimplePurchase {user_id, item_id, timestamp} => {
                 //make simple (non-ffa, non-special) purchase
 
