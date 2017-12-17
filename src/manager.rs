@@ -280,6 +280,7 @@ fn enrich_purchase(incoming: &rustix_bl::datastore::Purchase, datastore: &rustix
                 consumer: datastore.users.get(consumer_id).unwrap_or_error()?.clone(),
             })
         },
+        _ => unimplemented!(),
     }
 }
 
