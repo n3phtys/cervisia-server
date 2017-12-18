@@ -36,6 +36,7 @@ use persistent::State;
 use iron::typemap::Key;
 use manager::fill_backend_with_medium_test_data;
 use manager::fill_backend_with_large_test_data;
+use rustix_bl::datastore::DatastoreQueries;
 
 use params::{Params, Value};
 
@@ -69,6 +70,8 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     router.post("/items/delete", delete_item, "deleteitem");
     router.post("/purchases", simple_purchase, "addsimplepurchase");
     router.post("/purchases/cart", cart_purchase, "addcartpurchase");
+    router.post("/purchases/undo/user", undo_purchase_by_user, "undopurchaseuser");
+    router.post("/purchases/undo/admin", undo_purchase_by_admin, "undopurchaseadmin");
 
     router.get("/helloworld", hello_world, "helloworld");
 
@@ -181,6 +184,99 @@ pub mod responsehandlers {
         let mut s = String::new();
         let number_of_bytes = req.body.read_to_string(&mut s);
         return s;
+    }
+
+
+    pub fn undo_purchase_by_user(req: &mut iron::request::Request) -> IronResult<Response> {
+        let posted_body = extract_body(req);
+        println!("posted_body = {:?}", posted_body);
+        let parsed_body: UndoPurchase = serde_json::from_str(&posted_body).unwrap();
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let mut dat = datholder.write().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
+
+                let cur = current_time_millis();
+
+                if (dat.datastore.get_purchase_timestamp(parsed_body.unique_id).filter(|t|cur < t + (15i64 * 1000i64)).is_some()) {
+                    return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                        error_message: Some("A user may only undo a purchase before 15s have passed".to_string()),
+                        is_success: false,
+                        content: None,
+                    }).unwrap())))
+                } else {
+                    let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::UndoPurchase {
+                        unique_id: parsed_body.unique_id,
+                    });
+
+                    match result {
+                        Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                            error_message: None,
+                            is_success: true,
+                            content: Some(SuccessContent {
+                                timestamp_epoch_millis: current_time_millis(),
+                                refreshed_data: sux,
+                            }),
+                        }).unwrap()))),
+                        Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                            error_message: Some(err.description().to_string()),
+                            is_success: false,
+                            content: None,
+                        }).unwrap()))),
+                    }
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+    pub fn undo_purchase_by_admin(req: &mut iron::request::Request) -> IronResult<Response> {
+        let posted_body = extract_body(req);
+        println!("posted_body = {:?}", posted_body);
+        let parsed_body: UndoPurchase = serde_json::from_str(&posted_body).unwrap();
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let mut dat = datholder.write().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
+
+                let cur = current_time_millis();
+
+                if (dat.datastore.get_purchase_timestamp(parsed_body.unique_id).is_some()) {
+                    return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                        error_message: Some("Cannot find purchase to delete (the purchase may have already been finalized into a bill, undoing such a purchase is not possible)".to_string()),
+                        is_success: false,
+                        content: None,
+                    }).unwrap())))
+                } else {
+                    let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::UndoPurchase {
+                        unique_id: parsed_body.unique_id,
+                    });
+
+                    match result {
+                        Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                            error_message: None,
+                            is_success: true,
+                            content: Some(SuccessContent {
+                                timestamp_epoch_millis: current_time_millis(),
+                                refreshed_data: sux,
+                            }),
+                        }).unwrap()))),
+                        Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                            error_message: Some(err.description().to_string()),
+                            is_success: false,
+                            content: None,
+                        }).unwrap()))),
+                    }
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
     }
 
 
