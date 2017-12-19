@@ -16,8 +16,6 @@ use std::ops::Try;
 use std::option::NoneError;
 
 
-
-
 #[derive(Serialize, Deserialize)]
 pub struct ParametersPagination {
     pub start_inclusive: u32,
@@ -46,7 +44,6 @@ pub enum ReadQueryParams {
     OutgoingFreebiesCount(ParametersOutgoingFreebiesCount),
     OutgoingFreebies(ParametersOutgoingFreebies),
 }
-
 
 
 #[derive(Serialize, Deserialize)]
@@ -132,7 +129,6 @@ pub struct ParametersTopPersonalDrinks {
     pub user_id: u32,
     pub n: u8,
 }
-
 
 
 #[derive(Serialize, Deserialize)]
@@ -229,9 +225,7 @@ pub enum Purchase {
 
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct MyNoneError {
-
-}
+pub struct MyNoneError {}
 
 impl std::fmt::Display for MyNoneError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -260,28 +254,28 @@ impl<T> ErrorUnwrap<T> for Option<T> {
         if (self.is_some()) {
             return Ok(self.unwrap());
         } else {
-            return Err(Box::new(MyNoneError{}))
+            return Err(Box::new(MyNoneError {}));
         }
     }
 }
 
 fn enrich_purchase(incoming: &rustix_bl::datastore::Purchase, datastore: &rustix_bl::datastore::Datastore) -> std::result::Result<Purchase, Box<std::error::Error>> {
     return match *incoming {
-        rustix_bl::datastore::Purchase::UndoPurchase{ref unique_id} => {
+        rustix_bl::datastore::Purchase::UndoPurchase { ref unique_id } => {
             Ok(Purchase::UndoPurchase {
-                unique_id : *unique_id,
+                unique_id: *unique_id,
             })
-        },
-        rustix_bl::datastore::Purchase::SimplePurchase{ref unique_id, ref timestamp_epoch_millis, ref item_id, ref consumer_id} => {
+        }
+        rustix_bl::datastore::Purchase::SimplePurchase { ref unique_id, ref timestamp_epoch_millis, ref item_id, ref consumer_id } => {
             Ok(Purchase::SimplePurchase {
                 unique_id: *unique_id,
                 timestamp_epoch_millis: *timestamp_epoch_millis,
                 item: datastore.items.get(item_id).unwrap_or_error()?.clone(),
                 consumer: datastore.users.get(consumer_id).unwrap_or_error()?.clone(),
             })
-        },
+        }
         _ => unimplemented!(),
-    }
+    };
 }
 
 pub trait RustixWrites {
@@ -319,9 +313,8 @@ pub trait ServableRustix {
     /**
     returns json array or number, exactly what is to be updated (using query_read() to compute new values)
     */
-    fn check_apply_write(backend: &mut Backend, app_state: ParametersAll, write_event : rustix_bl::rustix_event_shop::BLEvents) -> Result<RefreshedData, Box<::std::error::Error>>;
+    fn check_apply_write(backend: &mut Backend, app_state: ParametersAll, write_event: rustix_bl::rustix_event_shop::BLEvents) -> Result<RefreshedData, Box<::std::error::Error>>;
 }
-
 
 
 pub struct ServableRustixImpl {}
@@ -339,7 +332,6 @@ impl ServableRustix for ServableRustixImpl {
 
         match query {
             AllItems(param) => {
-
                 let xs = backend.datastore.items_searchhit_ids(&param.count_pars.searchterm);
 
                 let mut v: Vec<rustix_bl::datastore::Item> = Vec::new();
@@ -354,14 +346,12 @@ impl ServableRustix for ServableRustixImpl {
                     total_count: total,
                     from: param.pagination.start_inclusive,
                     to: param.pagination.end_exclusive,
-                    results: v.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize).map(|r|r.clone()).collect(),
+                    results: v.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize).map(|r| r.clone()).collect(),
                 };
 
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
-            },
+            }
             AllUsers(param) => {
-
-
                 let xs = backend.datastore.users_searchhit_ids(&param.count_pars.searchterm);
 
                 println!("AllUsersQuery with total store =\n{:?}\nvs\n{:?}", backend.datastore.users, xs);
@@ -379,11 +369,11 @@ impl ServableRustix for ServableRustixImpl {
                     total_count: total,
                     from: param.pagination.start_inclusive,
                     to: param.pagination.end_exclusive,
-                    results: v.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize).map(|r|r.clone()).collect(),
+                    results: v.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize).map(|r| r.clone()).collect(),
                 };
 
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
-            },
+            }
             TopUsers(param) => {
                 //TODO: this requires datastore to keep all users sorted descendingly if we want to take by n
 
@@ -391,8 +381,12 @@ impl ServableRustix for ServableRustixImpl {
                 let mut v: Vec<rustix_bl::datastore::User> = Vec::new();
                 let mut total = 0u32;
 
-                let xs = backend.datastore.top_user_ids(param.n);
-                
+
+                let highlight_users: HashSet<u32> = backend.datastore.highlighted_users.iter().map(|c| *c).collect();
+                let highlighted: u16 = highlight_users.len() as u16;
+
+                let xs = backend.datastore.top_user_ids(param.n - highlighted);
+
                 for id in xs {
                     //if user.username.contains(param.count_pars.searchterm) {
                     total += 1;
@@ -402,26 +396,34 @@ impl ServableRustix for ServableRustixImpl {
                     }
                 }
 
+                for id in highlight_users {
+                    total += 1;
+                    match backend.datastore.users.get(&id) {
+                        Some(user) => v.push(user.clone()),
+                        None => panic!("Userkey for highlighted user not found in user hashmap"),
+                    }
+                }
+
+                v.sort_unstable_by(|a, b| a.username.cmp(&b.username));
+
                 let result: PaginatedResult<rustix_bl::datastore::User> = PaginatedResult {
                     total_count: total,
                     from: 0,
                     to: total,
-                    results: v.iter().map(|r|r.clone()).collect(),
+                    results: v,
                 };
 
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
-
-            },
+            }
             DetailInfoForUser(param) => {
-
-                let now : i64 = server::current_time_millis();
-                let three_months_ago : i64 = now - (90i64 * 24i64 * 3_600_000i64);
+                let now: i64 = server::current_time_millis();
+                let three_months_ago: i64 = now - (90i64 * 24i64 * 3_600_000i64);
 
                 let bill = backend.datastore.bills.last();
 
                 let xs = backend.datastore.personal_log_filtered(param.user_id, three_months_ago, now);
 
-                let mut hm : HashMap<String, u32> = HashMap::new();
+                let mut hm: HashMap<String, u32> = HashMap::new();
                 let mut cost = 0u32;
 
                 for x in xs {
@@ -452,48 +454,41 @@ impl ServableRustix for ServableRustixImpl {
                     to: 1,
                     results: vec![UserDetailInfo {
                         consumed: hm,
-                        last_bill_date: bill.map(|b|b.timestamp).unwrap_or(0i64),
+                        last_bill_date: bill.map(|b| b.timestamp).unwrap_or(0i64),
                         last_bill_cost: previouscost,
                         currently_cost: cost,
                     }],
                 };
 
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
-
-            },
+            }
             TopPersonalDrinks(param) => {
-
                 let xs = backend.datastore.top_item_ids(param.user_id, param.n);
 
-                let v : Vec<rustix_bl::datastore::Item> = xs.iter().map(|id| backend.datastore.items.get(id).unwrap().clone()).collect();
+                let v: Vec<rustix_bl::datastore::Item> = xs.iter().map(|id| backend.datastore.items.get(id).unwrap().clone()).collect();
 
 
                 let result: PaginatedResult<rustix_bl::datastore::Item> = PaginatedResult {
                     total_count: v.len() as u32,
                     from: 0,
                     to: v.len() as u32,
-                    results: v.iter().map(|r|r.clone()).collect(),
+                    results: v.iter().map(|r| r.clone()).collect(),
                 };
 
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
-
-            },
+            }
             PurchaseLogGlobal(param) => {
-
                 let mut xs = backend.datastore.global_log_filtered(param.count_pars.millis_start, param.count_pars.millis_end).to_vec();
 
 
-                xs.sort_by(|x,y| y.get_timestamp().cmp(x.get_timestamp()));
+                xs.sort_by(|x, y| y.get_timestamp().cmp(x.get_timestamp()));
 
-                let mut xv : Vec<Purchase> = Vec::new();
-
-
+                let mut xv: Vec<Purchase> = Vec::new();
 
 
                 for r in xs.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize) {
                     xv.push(enrich_purchase(r, &backend.datastore)?);
                 }
-
 
 
                 let result: PaginatedResult<Purchase> = PaginatedResult {
@@ -504,16 +499,14 @@ impl ServableRustix for ServableRustixImpl {
                 };
 
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
-
-            },
+            }
             PurchaseLogPersonal(param) => {
-
                 let mut xs = backend.datastore.personal_log_filtered(param.count_pars.user_id, param.count_pars.millis_start, param.count_pars.millis_end);
 
-                xs.sort_by(|x,y| y.get_timestamp().cmp(x.get_timestamp()));
+                xs.sort_by(|x, y| y.get_timestamp().cmp(x.get_timestamp()));
 
 
-                let mut xv : Vec<Purchase> = Vec::new();
+                let mut xv: Vec<Purchase> = Vec::new();
 
                 for r in xs.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize) {
                     xv.push(enrich_purchase(r, &backend.datastore)?);
@@ -528,15 +521,12 @@ impl ServableRustix for ServableRustixImpl {
                 };
 
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
-
-            },
+            }
             Bills(param) => {
-
-
                 let mut xs = backend.datastore.bills_filtered(param.count_pars.scope_user_id, param.count_pars.start_inclusive, param.count_pars.end_exclusive).to_vec();
 
 
-                xs.sort_by(|x,y| y.timestamp.cmp(&x.timestamp));
+                xs.sort_by(|x, y| y.timestamp.cmp(&x.timestamp));
 
 
                 let result: PaginatedResult<Bill> = PaginatedResult {
@@ -557,8 +547,7 @@ impl ServableRustix for ServableRustixImpl {
                 println!("Result b = {:?}", b);
 
                 return Ok(b);
-
-            },
+            }
             _ => unimplemented!()
         }
     }
@@ -567,15 +556,15 @@ impl ServableRustix for ServableRustixImpl {
         use rustix_bl::rustix_backend::WriteBackend;
         use manager::ReadQueryParams::*;
         match write_event {
-            rustix_event_shop::BLEvents::CreateUser{username} => {
-                let username : String = username;
+            rustix_event_shop::BLEvents::CreateUser { username } => {
+                let username: String = username;
                 let _ = &mut backend.create_user(username);
                 //refresh only 2 values:
                 //refresh all users
                 let all_list = Self::query_read(&*backend, AllUsers(app_state.all_users))?;
                 //refresh top users
                 let top_list = Self::query_read(&*backend, TopUsers(app_state.top_users))?;
-                Ok(RefreshedData{
+                Ok(RefreshedData {
                     DetailInfoForUser: serde_json::Value::Null,
                     TopUsers: top_list,
                     AllUsers: all_list,
@@ -590,17 +579,17 @@ impl ServableRustix for ServableRustixImpl {
                     IncomingFreebies: serde_json::Value::Null,
                     OutgoingFreebies: serde_json::Value::Null,
                 })
-            },
-            rustix_event_shop::BLEvents::CreateItem{
+            }
+            rustix_event_shop::BLEvents::CreateItem {
                 itemname,
                 price_cents,
                 category,
             } => {
                 let _ = &mut backend.create_item(itemname, price_cents, category);
 
-            let all_list = Self::query_read(&*backend, AllItems(app_state.all_items))?;
+                let all_list = Self::query_read(&*backend, AllItems(app_state.all_items))?;
 
-                Ok(RefreshedData{
+                Ok(RefreshedData {
                     DetailInfoForUser: serde_json::Value::Null,
                     TopUsers: serde_json::Value::Null,
                     AllUsers: serde_json::Value::Null,
@@ -615,16 +604,16 @@ impl ServableRustix for ServableRustixImpl {
                     IncomingFreebies: serde_json::Value::Null,
                     OutgoingFreebies: serde_json::Value::Null,
                 })
-            },
-            rustix_event_shop::BLEvents::UpdateUser{user_id, username, is_billed, is_highlighted, external_user_id} => {
-                let username : String = username;
+            }
+            rustix_event_shop::BLEvents::UpdateUser { user_id, username, is_billed, is_highlighted, external_user_id } => {
+                let username: String = username;
                 let _ = &mut backend.update_user(user_id, username, is_billed, is_highlighted, external_user_id);
                 //refresh only 2 values:
                 //refresh all users
                 let all_list = Self::query_read(&*backend, AllUsers(app_state.all_users))?;
                 //refresh top users
                 let top_list = Self::query_read(&*backend, TopUsers(app_state.top_users))?;
-                Ok(RefreshedData{
+                Ok(RefreshedData {
                     DetailInfoForUser: serde_json::Value::Null,
                     TopUsers: top_list,
                     AllUsers: all_list,
@@ -639,13 +628,13 @@ impl ServableRustix for ServableRustixImpl {
                     IncomingFreebies: serde_json::Value::Null,
                     OutgoingFreebies: serde_json::Value::Null,
                 })
-            },
-            rustix_event_shop::BLEvents::UpdateItem{item_id, itemname, price_cents, category} => {
-                let _ = &mut backend.update_item(item_id,itemname, price_cents, category);
+            }
+            rustix_event_shop::BLEvents::UpdateItem { item_id, itemname, price_cents, category } => {
+                let _ = &mut backend.update_item(item_id, itemname, price_cents, category);
 
                 let all_list = Self::query_read(&*backend, AllItems(app_state.all_items))?;
 
-                Ok(RefreshedData{
+                Ok(RefreshedData {
                     DetailInfoForUser: serde_json::Value::Null,
                     TopUsers: serde_json::Value::Null,
                     AllUsers: serde_json::Value::Null,
@@ -660,15 +649,15 @@ impl ServableRustix for ServableRustixImpl {
                     IncomingFreebies: serde_json::Value::Null,
                     OutgoingFreebies: serde_json::Value::Null,
                 })
-            },
-            rustix_event_shop::BLEvents::DeleteUser{user_id} => {
+            }
+            rustix_event_shop::BLEvents::DeleteUser { user_id } => {
                 let _ = &mut backend.delete_user(user_id);
                 //refresh only 2 values:
                 //refresh all users
                 let all_list = Self::query_read(&*backend, AllUsers(app_state.all_users))?;
                 //refresh top users
                 let top_list = Self::query_read(&*backend, TopUsers(app_state.top_users))?;
-                Ok(RefreshedData{
+                Ok(RefreshedData {
                     DetailInfoForUser: serde_json::Value::Null,
                     TopUsers: top_list,
                     AllUsers: all_list,
@@ -683,13 +672,13 @@ impl ServableRustix for ServableRustixImpl {
                     IncomingFreebies: serde_json::Value::Null,
                     OutgoingFreebies: serde_json::Value::Null,
                 })
-            },
-            rustix_event_shop::BLEvents::DeleteItem{item_id} => {
+            }
+            rustix_event_shop::BLEvents::DeleteItem { item_id } => {
                 let _ = &mut backend.delete_item(item_id);
 
                 let all_list = Self::query_read(&*backend, AllItems(app_state.all_items))?;
 
-                Ok(RefreshedData{
+                Ok(RefreshedData {
                     DetailInfoForUser: serde_json::Value::Null,
                     TopUsers: serde_json::Value::Null,
                     AllUsers: serde_json::Value::Null,
@@ -704,8 +693,8 @@ impl ServableRustix for ServableRustixImpl {
                     IncomingFreebies: serde_json::Value::Null,
                     OutgoingFreebies: serde_json::Value::Null,
                 })
-            },
-            rustix_event_shop::BLEvents::MakeSimplePurchase {user_id, item_id, timestamp} => {
+            }
+            rustix_event_shop::BLEvents::MakeSimplePurchase { user_id, item_id, timestamp } => {
                 //make simple (non-ffa, non-special) purchase
 
                 let b = &mut backend.purchase(user_id, item_id, timestamp);
@@ -720,17 +709,17 @@ impl ServableRustix for ServableRustixImpl {
                 //refresh global log
                 let global_log = Self::query_read(&*backend, PurchaseLogGlobal(app_state.global_log))?;
                 //refresh last log
-                let last_log = Self::query_read(&*backend, PurchaseLogGlobal( ParametersPurchaseLogGlobal{
+                let last_log = Self::query_read(&*backend, PurchaseLogGlobal(ParametersPurchaseLogGlobal {
                     count_pars: ParametersPurchaseLogGlobalCount { millis_start: server::current_time_millis() - (1000i64 * 60 * 60 * 24), millis_end: server::current_time_millis() + 1000i64 },
                     pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 5 },
-                } ))?;
+                }))?;
                 //refresh personal log
                 let personal_log = Self::query_read(&*backend, PurchaseLogPersonal(app_state.personal_log))?;
                 //do not refresh freebies (do that on-demand)
 
                 //TODO: fix freebies
 
-                Ok(RefreshedData{
+                Ok(RefreshedData {
                     DetailInfoForUser: detail_info,
                     TopUsers: top_list,
                     AllUsers: serde_json::Value::Null,
@@ -745,8 +734,8 @@ impl ServableRustix for ServableRustixImpl {
                     IncomingFreebies: serde_json::Value::Null,
                     OutgoingFreebies: serde_json::Value::Null,
                 })
-            },
-            rustix_event_shop::BLEvents::UndoPurchase {unique_id} => {
+            }
+            rustix_event_shop::BLEvents::UndoPurchase { unique_id } => {
                 //make simple (non-ffa, non-special) purchase
 
                 let b = &mut backend.undo_purchase(unique_id);
@@ -761,17 +750,17 @@ impl ServableRustix for ServableRustixImpl {
                 //refresh global log
                 let global_log = Self::query_read(&*backend, PurchaseLogGlobal(app_state.global_log))?;
                 //refresh last log
-                let last_log = Self::query_read(&*backend, PurchaseLogGlobal( ParametersPurchaseLogGlobal{
+                let last_log = Self::query_read(&*backend, PurchaseLogGlobal(ParametersPurchaseLogGlobal {
                     count_pars: ParametersPurchaseLogGlobalCount { millis_start: server::current_time_millis() - (1000i64 * 60 * 60 * 24), millis_end: server::current_time_millis() + 1000i64 },
                     pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 5 },
-                } ))?;
+                }))?;
                 //refresh personal log
                 let personal_log = Self::query_read(&*backend, PurchaseLogPersonal(app_state.personal_log))?;
                 //do not refresh freebies (do that on-demand)
 
                 //TODO: fix freebies
 
-                Ok(RefreshedData{
+                Ok(RefreshedData {
                     DetailInfoForUser: detail_info,
                     TopUsers: top_list,
                     AllUsers: serde_json::Value::Null,
@@ -786,9 +775,8 @@ impl ServableRustix for ServableRustixImpl {
                     IncomingFreebies: serde_json::Value::Null,
                     OutgoingFreebies: serde_json::Value::Null,
                 })
-            },
-            rustix_event_shop::BLEvents::MakeShoppingCartPurchase {user_id, specials, item_ids, timestamp} => {
-
+            }
+            rustix_event_shop::BLEvents::MakeShoppingCartPurchase { user_id, specials, item_ids, timestamp } => {
                 let b = &mut backend.cart_purchase(user_id, specials, item_ids, timestamp);
 
                 //refresh 5 values:
@@ -801,17 +789,17 @@ impl ServableRustix for ServableRustixImpl {
                 //refresh global log
                 let global_log = Self::query_read(&*backend, PurchaseLogGlobal(app_state.global_log))?;
                 //refresh last log
-                let last_log = Self::query_read(&*backend, PurchaseLogGlobal( ParametersPurchaseLogGlobal{
+                let last_log = Self::query_read(&*backend, PurchaseLogGlobal(ParametersPurchaseLogGlobal {
                     count_pars: ParametersPurchaseLogGlobalCount { millis_start: server::current_time_millis() - (1000i64 * 60 * 60 * 24), millis_end: server::current_time_millis() + 1000i64 },
                     pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 5 },
-                } ))?;
+                }))?;
                 //refresh personal log
                 let personal_log = Self::query_read(&*backend, PurchaseLogPersonal(app_state.personal_log))?;
                 //do not refresh freebies (do that on-demand)
 
                 //TODO: fix freebies
 
-                Ok(RefreshedData{
+                Ok(RefreshedData {
                     DetailInfoForUser: detail_info,
                     TopUsers: top_list,
                     AllUsers: serde_json::Value::Null,
@@ -826,12 +814,11 @@ impl ServableRustix for ServableRustixImpl {
                     IncomingFreebies: serde_json::Value::Null,
                     OutgoingFreebies: serde_json::Value::Null,
                 })
-            },
+            }
             _ => unimplemented!()
         }
     }
 }
-
 
 
 pub fn fill_backend_with_medium_test_data(backend: &mut Backend) -> () {
