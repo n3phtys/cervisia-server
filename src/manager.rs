@@ -214,7 +214,20 @@ pub struct UserDetailInfo {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Purchase {
-    UndoPurchase { unique_id: u64 },
+    FFAPurchase {
+        unique_id: u64,
+        timestamp_epoch_millis: i64,
+        item: rustix_bl::datastore::Item,
+        freeby: rustix_bl::datastore::Freeby,
+        donor: rustix_bl::datastore::User,
+    },
+    SpecialPurchase {
+        unique_id: u64,
+        timestamp_epoch_millis: i64,
+        special_name: String,
+        specialcost: Option<u32>, //set to None, set to correct value during bill finalization
+        consumer: rustix_bl::datastore::User,
+    },
     SimplePurchase {
         unique_id: u64,
         timestamp_epoch_millis: i64,
@@ -261,11 +274,6 @@ impl<T> ErrorUnwrap<T> for Option<T> {
 
 fn enrich_purchase(incoming: &rustix_bl::datastore::Purchase, datastore: &rustix_bl::datastore::Datastore) -> std::result::Result<Purchase, Box<std::error::Error>> {
     return match *incoming {
-        rustix_bl::datastore::Purchase::UndoPurchase { ref unique_id } => {
-            Ok(Purchase::UndoPurchase {
-                unique_id: *unique_id,
-            })
-        }
         rustix_bl::datastore::Purchase::SimplePurchase { ref unique_id, ref timestamp_epoch_millis, ref item_id, ref consumer_id } => {
             Ok(Purchase::SimplePurchase {
                 unique_id: *unique_id,
@@ -273,8 +281,25 @@ fn enrich_purchase(incoming: &rustix_bl::datastore::Purchase, datastore: &rustix
                 item: datastore.items.get(item_id).unwrap_or_error()?.clone(),
                 consumer: datastore.users.get(consumer_id).unwrap_or_error()?.clone(),
             })
-        }
-        _ => unimplemented!(),
+        },
+        rustix_bl::datastore::Purchase::SpecialPurchase { ref unique_id, ref timestamp_epoch_millis, ref special_name, ref specialcost, ref consumer_id } => {
+            Ok(Purchase::SpecialPurchase {
+                unique_id: *unique_id,
+                timestamp_epoch_millis: *timestamp_epoch_millis,
+                special_name: special_name.to_string(),
+                specialcost: *specialcost,
+                consumer: datastore.users.get(consumer_id).unwrap_or_error()?.clone(),
+            })
+        },
+        rustix_bl::datastore::Purchase::FFAPurchase { ref unique_id, ref timestamp_epoch_millis, ref item_id, ref freeby_id, ref donor } => {
+            Ok(Purchase::FFAPurchase {
+                unique_id: *unique_id,
+                timestamp_epoch_millis: *timestamp_epoch_millis,
+                item: datastore.items.get(item_id).unwrap_or_error()?.clone(),
+                freeby: datastore.get_ffa_freeby(*freeby_id).unwrap().clone(),
+                donor: datastore.users.get(donor).unwrap_or_error()?.clone(),
+            })
+        },
     };
 }
 
@@ -419,7 +444,7 @@ impl ServableRustix for ServableRustixImpl {
                 let now: i64 = server::current_time_millis();
                 let three_months_ago: i64 = now - (90i64 * 24i64 * 3_600_000i64);
 
-                let bill = backend.datastore.bills.last();
+                let bill = backend.datastore.bills.iter().filter(|b|b.bill_state.is_finalized()).last();
 
                 let xs = backend.datastore.personal_log_filtered(param.user_id, three_months_ago, now);
 
@@ -440,10 +465,16 @@ impl ServableRustix for ServableRustixImpl {
 
                 if bill.is_some() {
                     let allmap = bill.unwrap();
-                    for (user_tuple, cost_map) in &allmap.sum_of_cost_hash_map {
-                        for (item_tuple, cost) in cost_map {
-                            previouscost += cost;
-                        }
+                    match allmap.finalized_data.user_consumption.get(&param.user_id) {
+                        Some(billuserinstance) => {
+                            for (day, dayinstance) in &billuserinstance.per_day {
+                                for (item_id, count) in &dayinstance.personally_consumed {
+                                    let cost_once : u32 = allmap.finalized_data.all_items.get(&item_id).unwrap().cost_cents;
+                                    previouscost += (cost_once * item_id);
+                                }
+                            }
+                        },
+                        None => (),
                     }
                 }
 
@@ -454,7 +485,7 @@ impl ServableRustix for ServableRustixImpl {
                     to: 1,
                     results: vec![UserDetailInfo {
                         consumed: hm,
-                        last_bill_date: bill.map(|b| b.timestamp).unwrap_or(0i64),
+                        last_bill_date: bill.map(|b| b.timestamp_to).unwrap_or(0i64),
                         last_bill_cost: previouscost,
                         currently_cost: cost,
                     }],
@@ -526,7 +557,7 @@ impl ServableRustix for ServableRustixImpl {
                 let mut xs = backend.datastore.bills_filtered(param.count_pars.scope_user_id, param.count_pars.start_inclusive, param.count_pars.end_exclusive).to_vec();
 
 
-                xs.sort_by(|x, y| y.timestamp.cmp(&x.timestamp));
+                xs.sort_by(|x, y| y.timestamp_to.cmp(&x.timestamp_to));
 
 
                 let result: PaginatedResult<Bill> = PaginatedResult {
@@ -902,7 +933,7 @@ pub fn fill_backend_with_large_test_data(backend: &mut Backend) -> () {
         }
     }
 
-    (*back).create_bill(timestamp_counter + (1000i64 * 3600 * 24 * 365 * 20), UserGroup::AllUsers, "some bill comment".to_string());
+    (*back).create_bill(0i64, timestamp_counter + (1000i64 * 3600 * 24 * 365 * 20), UserGroup::AllUsers, "some bill comment".to_string());
 }
 
 #[cfg(test)]

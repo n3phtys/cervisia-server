@@ -201,7 +201,7 @@ pub mod responsehandlers {
 
                 let cur = current_time_millis();
 
-                if (dat.datastore.get_purchase_timestamp(parsed_body.unique_id).filter(|t|cur < t + (30i64 * 1000i64)).is_some()) {
+                if dat.datastore.get_purchase_timestamp(parsed_body.unique_id).filter(|t|cur < t + (30i64 * 1000i64)).is_some() {
                     return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
                         error_message: Some("A user may only undo a purchase before 30s have passed".to_string()),
                         is_success: false,
@@ -247,7 +247,7 @@ pub mod responsehandlers {
 
                 let cur = current_time_millis();
 
-                if (dat.datastore.get_purchase_timestamp(parsed_body.unique_id).is_some()) {
+                if dat.datastore.get_purchase_timestamp(parsed_body.unique_id).is_some() {
                     return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
                         error_message: Some("Cannot find purchase to delete (the purchase may have already been finalized into a bill, undoing such a purchase is not possible)".to_string()),
                         is_success: false,
