@@ -109,17 +109,17 @@ pub mod responsehandlers {
     use super::*;
     use manager::*;
 
-    #[derive(Serialize, Deserialize, Debug)]
+    #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct CreateItem {
         pub name: String,
         pub price_cents: u32,
         pub category: Option<String>,
     }
 
-    #[derive(Serialize, Deserialize, Debug)]
+    #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct CreateUser { pub username: String }
 
-    #[derive(Serialize, Deserialize, Debug)]
+    #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct UpdateItem {
         pub name: String,
         pub item_id: u32,
@@ -127,7 +127,7 @@ pub mod responsehandlers {
         pub price_cents: u32,
     }
 
-    #[derive(Serialize, Deserialize, Debug)]
+    #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct UpdateUser {
         pub username: String,
         pub external_user_id: Option<String>,
@@ -135,39 +135,115 @@ pub mod responsehandlers {
         pub is_billed: bool,
         pub highlight_in_ui: bool, }
 
-    #[derive(Serialize, Deserialize, Debug)]
+    #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct DeleteItem { pub item_id: u32 }
 
-    #[derive(Serialize, Deserialize, Debug)]
+    #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct DeleteUser { pub user_id: u32 }
 
-    #[derive(Serialize, Deserialize, Debug)]
+    #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct MakeSimplePurchase {
         pub user_id: u32,
         pub item_id: u32,
     }
 
-    #[derive(Serialize, Deserialize, Debug)]
+    #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct KeyValue {
         pub key: u32,
         pub value: u32,
     }
 
-    #[derive(Serialize, Deserialize, Debug)]
+    #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct MakeCartPurchase {
         pub user_id: u32,
         pub items: Vec<KeyValue>,
         pub specials: Vec<String>,
     }
 
-    #[derive(Serialize, Deserialize, Debug)]
+    #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct UndoPurchase { pub unique_id: u64 }
 
-    #[derive(Serialize, Deserialize, Debug)]
+    #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct CreateBill {
         pub user_ids: rustix_bl::datastore::UserGroup,
+        pub timestamp_from: i64,
+        pub timestamp_to: i64,
         pub comment: String,
     }
+
+
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    pub struct EditBill {
+        pub user_ids: rustix_bl::datastore::UserGroup,
+        pub timestamp_from: i64,
+        pub timestamp_to: i64,
+        pub comment: String,
+        pub exclude_user_ids: HashSet<u32>,
+    }
+
+
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    pub struct FinalizeBill {
+        pub timestamp_from: i64,
+        pub timestamp_to: i64,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    pub struct ExportBill {
+        pub timestamp_from: i64,
+        pub timestamp_to: i64,
+        pub limit_to_user: Option<u32>,
+        pub email_address: String,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    pub struct DeleteUnfinishedBill {
+        pub timestamp_from: i64,
+        pub timestamp_to: i64,
+    }
+
+
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    pub struct MakeFFAPurchase {
+        pub ffa_id: u64,
+        pub item_id: u32,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    pub struct CreateFreeForAll {
+        pub allowed_categories: HashSet<String>,
+        pub allowed_drinks: HashSet<u32>,
+        pub allowed_number_total: u16,
+        pub text_message: String,
+        pub donor: u32,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    pub struct CreateBudgetGiveout {
+        pub cents_worth_total: u32,
+        pub text_message: String,
+        pub donor: u32,
+        pub recipient: u32,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    pub struct CreateCountGiveout {
+        pub allowed_categories: HashSet<String>,
+        pub allowed_drinks: HashSet<u32>,
+        pub allowed_number_total: u16,
+        pub text_message: String,
+        pub donor: u32,
+        pub recipient: u32,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    pub struct SetPriceForSpecial {
+        pub unique_id: u64,
+        pub price: u32,
+    }
+
+
+
 
     fn extract_query(req: &mut iron::request::Request) -> Option<String> {
         let map = req.get_ref::<Params>().unwrap();
