@@ -37,6 +37,9 @@ use iron::typemap::Key;
 use manager::fill_backend_with_medium_test_data;
 use manager::fill_backend_with_large_test_data;
 use rustix_bl::datastore::DatastoreQueries;
+use typescriptify::TypeScriptifyTrait;
+use manager;
+use manager::*;
 
 use params::{Params, Value};
 
@@ -49,9 +52,59 @@ impl Key for SharedBackend {
     type Value = Backend;
 }
 
+fn typescript_definitions() -> Vec<String> {
+    return vec![
+        ParametersAll::type_script_ify(),
+        ParametersPagination::type_script_ify(),
+        ParametersTopUsers::type_script_ify(),
+        ParametersAllUsersCount::type_script_ify(),
+        ParametersAllUsers::type_script_ify(),
+        ParametersAllItemsCount::type_script_ify(),
+        ParametersAllItems::type_script_ify(),
+        ParametersPurchaseLogGlobalCount::type_script_ify(),
+        ParametersPurchaseLogGlobal::type_script_ify(),
+        ParametersBillsCount::type_script_ify(),
+        ParametersBills::type_script_ify(),
+        ParametersOpenFFAFreebies::type_script_ify(),
+        ParametersTopPersonalDrinks::type_script_ify(),
+        ParametersPurchaseLogPersonalCount::type_script_ify(),
+        ParametersPurchaseLogPersonal::type_script_ify(),
+        ParametersIncomingFreebiesCount::type_script_ify(),
+        ParametersIncomingFreebies::type_script_ify(),
+        ParametersOutgoingFreebiesCount::type_script_ify(),
+        ParametersOutgoingFreebies::type_script_ify(),
+        ParametersDetailInfoForUser::type_script_ify(),
+        UserDetailInfo::type_script_ify(),
+        manager::Purchase::type_script_ify(),
+        rustix_bl::datastore::User::type_script_ify(),
+        rustix_bl::datastore::UserGroup::type_script_ify(),
+        rustix_bl::datastore::Item::type_script_ify(),
+        rustix_bl::datastore::BillState::type_script_ify(),
+        rustix_bl::datastore::BillUserInstance::type_script_ify(),
+        rustix_bl::datastore::BillUserDayInstance::type_script_ify(),
+        rustix_bl::datastore::ExportableBillData::type_script_ify(),
+        rustix_bl::datastore::PricedSpecial::type_script_ify(),
+        rustix_bl::datastore::PaidFor::type_script_ify(),
+        rustix_bl::datastore::Bill::type_script_ify(),
+        rustix_bl::datastore::Freeby::type_script_ify(),
+    ];
+}
+
+fn typescript_definition_string() -> String {
+    let mut s = "".to_string();
+    for x in typescript_definitions() {
+        s = s + x.as_ref() + "\n\n";
+    }
+    return s;
+}
+
 
 pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Listening {
     let mut router = Router::new();
+
+    //let endpoints = typescript_definition_string();
+    router.get("/endpoints", |req: &mut iron::request::Request|Ok(Response::with((iron::status::Ok, typescript_definition_string()))), "endpoints");
+
 
 
     router.get("/users/all", all_users, "allusers");
@@ -694,6 +747,7 @@ pub mod responsehandlers {
             _ => return Ok(Response::with(iron::status::BadRequest)),
         };
     }
+
 
     pub fn all_users(req: &mut iron::request::Request) -> IronResult<Response> {
         let datholder = req.get::<State<SharedBackend>>().unwrap();

@@ -27,5 +27,6 @@ router = "0.5"
 lazy_static = "*"
 params = "0.7"
 persistent = "0.3"
-
+typescriptify-derive = "0.1"
+typescriptify = "0.1"
 

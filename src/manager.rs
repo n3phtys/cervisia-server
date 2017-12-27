@@ -14,16 +14,16 @@ use rustix_bl::rustix_backend::*;
 use server::Backend;
 use std::ops::Try;
 use std::option::NoneError;
+use typescriptify::TypeScriptifyTrait;
 
-
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersPagination {
     pub start_inclusive: u32,
     pub end_exclusive: u32,
 }
 
 
-#[derive(Serialize, Deserialize)]
+//#[derive(Serialize, Deserialize)]
 pub enum ReadQueryParams {
     DetailInfoForUser(ParametersDetailInfoForUser),
     TopUsers(ParametersTopUsers),
@@ -46,7 +46,7 @@ pub enum ReadQueryParams {
 }
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersAll {
     pub top_users: ParametersTopUsers,
     pub all_users: ParametersAllUsers,
@@ -62,41 +62,41 @@ pub struct ParametersAll {
 }
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersTopUsers {
     //decided not to use this: pub searchterm: String,
     pub n: u16,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersAllUsersCount {
     pub searchterm: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersAllUsers {
     pub count_pars: ParametersAllUsersCount,
     pub pagination: ParametersPagination,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersAllItemsCount {
     pub searchterm: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersAllItems {
     pub count_pars: ParametersAllItemsCount,
     pub pagination: ParametersPagination,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersPurchaseLogGlobalCount {
     pub millis_start: i64,
     pub millis_end: i64,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersPurchaseLogGlobal {
     pub count_pars: ParametersPurchaseLogGlobalCount,
     pub pagination: ParametersPagination,
@@ -104,14 +104,14 @@ pub struct ParametersPurchaseLogGlobal {
 }
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersBillsCount {
     pub start_inclusive: i64,
     pub end_exclusive: i64,
     pub scope_user_id: Option<u32>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersBills {
     pub count_pars: ParametersBillsCount,
     pub pagination: ParametersPagination,
@@ -119,53 +119,53 @@ pub struct ParametersBills {
 }
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersOpenFFAFreebies {
 //TODO: implement
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersTopPersonalDrinks {
     pub user_id: u32,
     pub n: u8,
 }
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersPurchaseLogPersonalCount {
     pub user_id: u32,
     pub millis_start: i64,
     pub millis_end: i64,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersPurchaseLogPersonal {
     pub count_pars: ParametersPurchaseLogPersonalCount,
     pub pagination: ParametersPagination,
 
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersIncomingFreebiesCount {
 //TODO: implement
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersIncomingFreebies {
 //TODO: implement
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersOutgoingFreebiesCount {
 //TODO: implement
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersOutgoingFreebies {
     //TODO: implement
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersDetailInfoForUser {
     pub user_id: u32,
 }
@@ -202,7 +202,7 @@ pub trait RustixReadsPersonal {
     fn detail_info_for_user(par: &ParametersDetailInfoForUser) -> UserDetailInfo;
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct UserDetailInfo {
     pub consumed: HashMap<String, u32>,
     //pub open_freebies: Vec<Freeby>,
@@ -212,7 +212,7 @@ pub struct UserDetailInfo {
 }
 
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, TypeScriptify)]
 pub enum Purchase {
     FFAPurchase {
         unique_id: u64,

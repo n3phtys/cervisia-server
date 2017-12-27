@@ -26,7 +26,9 @@ extern crate rand;
 extern crate params;
 extern crate router;
 extern crate persistent;
-
+#[macro_use]
+extern crate typescriptify_derive;
+extern crate typescriptify;
 
 use iron::prelude::*;
 use iron::{BeforeMiddleware, AfterMiddleware, typemap};
