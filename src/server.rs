@@ -87,6 +87,9 @@ fn typescript_definitions() -> Vec<String> {
         rustix_bl::datastore::PaidFor::type_script_ify(),
         rustix_bl::datastore::Bill::type_script_ify(),
         rustix_bl::datastore::Freeby::type_script_ify(),
+        ServerWriteResult::type_script_ify(),
+        SuccessContent::type_script_ify(),
+        RefreshedData::type_script_ify(),
     ];
 }
 
@@ -949,18 +952,17 @@ pub fn execute_cervisia_server(with_config: &ServerConfig,
     return server;
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, TypeScriptify)]
 pub struct ServerWriteResult {
     pub error_message: Option<String>,
     pub is_success: bool,
     pub content: Option<SuccessContent>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, TypeScriptify)]
 pub struct SuccessContent {
     pub timestamp_epoch_millis: i64,
     pub refreshed_data: RefreshedData,
-
 }
 
 pub fn get_current_milliseconds() -> i64 {
@@ -972,8 +974,8 @@ pub fn current_time_millis() -> i64 {
     return (d.timestamp() * 1000) + (d.nanosecond() as i64 / 1000000);
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct RefreshedData {
+#[derive(Serialize, Deserialize, Clone, Debug, TypeScriptify)]
+pub struct RefreshedData { //TODO: use option<PaginatedResult<T>> instead for each field
     pub DetailInfoForUser: serde_json::Value,
     pub TopUsers: serde_json::Value,
     pub AllUsers: serde_json::Value,
