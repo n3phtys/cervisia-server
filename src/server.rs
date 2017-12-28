@@ -90,6 +90,14 @@ fn typescript_definitions() -> Vec<String> {
         ServerWriteResult::type_script_ify(),
         SuccessContent::type_script_ify(),
         RefreshedData::type_script_ify(),
+        responsehandlers::MakeSimplePurchase::type_script_ify(),
+        responsehandlers::MakeCartPurchase::type_script_ify(),
+        responsehandlers::MakeFFAPurchase::type_script_ify(),
+        responsehandlers::CreateFreeForAll::type_script_ify(),
+        responsehandlers::CreateBudgetGiveout::type_script_ify(),
+        responsehandlers::CreateCountGiveout::type_script_ify(),
+        responsehandlers::SetPriceForSpecial::type_script_ify(),
+        responsehandlers::KeyValue::type_script_ify(),
     ];
 }
 
@@ -106,8 +114,7 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     let mut router = Router::new();
 
     //let endpoints = typescript_definition_string();
-    router.get("/endpoints", |req: &mut iron::request::Request|Ok(Response::with((iron::status::Ok, typescript_definition_string()))), "endpoints");
-
+    router.get("/endpoints", |req: &mut iron::request::Request| Ok(Response::with((iron::status::Ok, typescript_definition_string()))), "endpoints");
 
 
     router.get("/users/all", all_users, "allusers");
@@ -126,8 +133,13 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     router.post("/items/delete", delete_item, "deleteitem");
     router.post("/purchases", simple_purchase, "addsimplepurchase");
     router.post("/purchases/cart", cart_purchase, "addcartpurchase");
+    router.post("/purchases/ffa", ffa_purchase, "addffapurchase");
     router.post("/purchases/undo/user", undo_purchase_by_user, "undopurchaseuser");
     router.post("/purchases/undo/admin", undo_purchase_by_admin, "undopurchaseadmin");
+
+    router.post("/giveout/budget", create_budget_freeby, "createbudgetfreeby");
+    router.post("/giveout/count", create_count_freeby, "createcountfreeby");
+    router.post("/giveout/ffa", create_ffa_freeby, "createffafreeby");
 
     router.get("/helloworld", hello_world, "helloworld");
 
@@ -189,37 +201,38 @@ pub mod responsehandlers {
         pub external_user_id: Option<String>,
         pub user_id: u32,
         pub is_billed: bool,
-        pub highlight_in_ui: bool, }
+        pub highlight_in_ui: bool,
+    }
 
-    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct DeleteItem { pub item_id: u32 }
 
-    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct DeleteUser { pub user_id: u32 }
 
-    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct MakeSimplePurchase {
         pub user_id: u32,
         pub item_id: u32,
     }
 
-    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct KeyValue {
         pub key: u32,
         pub value: u32,
     }
 
-    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct MakeCartPurchase {
         pub user_id: u32,
         pub items: Vec<KeyValue>,
         pub specials: Vec<String>,
     }
 
-    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct UndoPurchase { pub unique_id: u64 }
 
-    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct CreateBill {
         pub user_ids: rustix_bl::datastore::UserGroup,
         pub timestamp_from: i64,
@@ -228,7 +241,7 @@ pub mod responsehandlers {
     }
 
 
-    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct EditBill {
         pub user_ids: rustix_bl::datastore::UserGroup,
         pub timestamp_from: i64,
@@ -238,13 +251,13 @@ pub mod responsehandlers {
     }
 
 
-    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct FinalizeBill {
         pub timestamp_from: i64,
         pub timestamp_to: i64,
     }
 
-    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct ExportBill {
         pub timestamp_from: i64,
         pub timestamp_to: i64,
@@ -252,53 +265,51 @@ pub mod responsehandlers {
         pub email_address: String,
     }
 
-    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct DeleteUnfinishedBill {
         pub timestamp_from: i64,
         pub timestamp_to: i64,
     }
 
 
-    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct MakeFFAPurchase {
         pub ffa_id: u64,
         pub item_id: u32,
     }
 
-    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct CreateFreeForAll {
-        pub allowed_categories: HashSet<String>,
-        pub allowed_drinks: HashSet<u32>,
+        pub allowed_categories: Vec<String>,
+        pub allowed_drinks: Vec<u32>,
         pub allowed_number_total: u16,
         pub text_message: String,
         pub donor: u32,
     }
 
-    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct CreateBudgetGiveout {
-        pub cents_worth_total: u32,
+        pub cents_worth_total: u64,
         pub text_message: String,
         pub donor: u32,
         pub recipient: u32,
     }
 
-    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct CreateCountGiveout {
-        pub allowed_categories: HashSet<String>,
-        pub allowed_drinks: HashSet<u32>,
+        pub allowed_categories: Vec<String>,
+        pub allowed_drinks: Vec<u32>,
         pub allowed_number_total: u16,
         pub text_message: String,
         pub donor: u32,
         pub recipient: u32,
     }
 
-    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct SetPriceForSpecial {
         pub unique_id: u64,
         pub price: u32,
     }
-
-
 
 
     fn extract_query(req: &mut iron::request::Request) -> Option<String> {
@@ -333,12 +344,12 @@ pub mod responsehandlers {
 
                 let cur = current_time_millis();
 
-                if dat.datastore.get_purchase_timestamp(parsed_body.unique_id).filter(|t|cur < t + (30i64 * 1000i64)).is_some() {
+                if dat.datastore.get_purchase_timestamp(parsed_body.unique_id).filter(|t| cur < t + (30i64 * 1000i64)).is_some() {
                     return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
                         error_message: Some("A user may only undo a purchase before 30s have passed".to_string()),
                         is_success: false,
                         content: None,
-                    }).unwrap())))
+                    }).unwrap())));
                 } else {
                     let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::UndoPurchase {
                         unique_id: parsed_body.unique_id,
@@ -384,7 +395,7 @@ pub mod responsehandlers {
                         error_message: Some("Cannot find purchase to delete (the purchase may have already been finalized into a bill, undoing such a purchase is not possible)".to_string()),
                         is_success: false,
                         content: None,
-                    }).unwrap())))
+                    }).unwrap())));
                 } else {
                     let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::UndoPurchase {
                         unique_id: parsed_body.unique_id,
@@ -463,9 +474,9 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
 
-                let mut item_ids : Vec<u32> = Vec::new();
+                let mut item_ids: Vec<u32> = Vec::new();
                 for kv in parsed_body.items {
-                    for i in 1.. kv.value {
+                    for i in 1..kv.value {
                         item_ids.push(kv.key);
                     }
                 }
@@ -475,6 +486,184 @@ pub mod responsehandlers {
                     specials: parsed_body.specials,
                     item_ids: item_ids,
                     timestamp: current_time_millis(),
+                };
+
+                let result = ServableRustixImpl::check_apply_write(&mut dat, param, event);
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                        error_message: None,
+                        is_success: true,
+                        content: Some(SuccessContent {
+                            timestamp_epoch_millis: current_time_millis(),
+                            refreshed_data: sux,
+                        }),
+                    }).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                        error_message: Some(err.description().to_string()),
+                        is_success: false,
+                        content: None,
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+
+
+    pub fn ffa_purchase(req: &mut iron::request::Request) -> IronResult<Response> {
+        let posted_body = extract_body(req);
+        println!("posted_body = {:?}", posted_body);
+        let parsed_body: MakeFFAPurchase = serde_json::from_str(&posted_body).unwrap();
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let mut dat = datholder.write().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
+
+                let event = rustix_bl::rustix_event_shop::BLEvents::MakeFreeForAllPurchase {
+                    ffa_id: parsed_body.ffa_id,
+                    item_id: parsed_body.item_id,
+                    timestamp: current_time_millis(),
+                };
+
+                let result = ServableRustixImpl::check_apply_write(&mut dat, param, event);
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                        error_message: None,
+                        is_success: true,
+                        content: Some(SuccessContent {
+                            timestamp_epoch_millis: current_time_millis(),
+                            refreshed_data: sux,
+                        }),
+                    }).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                        error_message: Some(err.description().to_string()),
+                        is_success: false,
+                        content: None,
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+
+
+    pub fn create_budget_freeby(req: &mut iron::request::Request) -> IronResult<Response> {
+        let posted_body = extract_body(req);
+        println!("posted_body = {:?}", posted_body);
+        let parsed_body: CreateBudgetGiveout = serde_json::from_str(&posted_body).unwrap();
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let mut dat = datholder.write().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
+
+                let event = rustix_bl::rustix_event_shop::BLEvents::CreateFreeBudget {
+                    cents_worth_total: parsed_body.cents_worth_total,
+                    text_message: parsed_body.text_message,
+                    created_timestamp: current_time_millis(),
+                    donor: parsed_body.donor,
+                    recipient: parsed_body.recipient,
+                };
+
+                let result = ServableRustixImpl::check_apply_write(&mut dat, param, event);
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                        error_message: None,
+                        is_success: true,
+                        content: Some(SuccessContent {
+                            timestamp_epoch_millis: current_time_millis(),
+                            refreshed_data: sux,
+                        }),
+                    }).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                        error_message: Some(err.description().to_string()),
+                        is_success: false,
+                        content: None,
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+
+
+    pub fn create_count_freeby(req: &mut iron::request::Request) -> IronResult<Response> {
+        let posted_body = extract_body(req);
+        println!("posted_body = {:?}", posted_body);
+        let parsed_body: CreateCountGiveout = serde_json::from_str(&posted_body).unwrap();
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let mut dat = datholder.write().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
+
+                let event = rustix_bl::rustix_event_shop::BLEvents::CreateFreeCount {
+                    allowed_categories: parsed_body.allowed_categories,
+                    allowed_drinks: parsed_body.allowed_drinks,
+                    allowed_number_total: parsed_body.allowed_number_total,
+                    text_message: parsed_body.text_message,
+                    created_timestamp: current_time_millis(),
+                    donor: parsed_body.donor,
+                    recipient: parsed_body.recipient,
+                };
+
+                let result = ServableRustixImpl::check_apply_write(&mut dat, param, event);
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                        error_message: None,
+                        is_success: true,
+                        content: Some(SuccessContent {
+                            timestamp_epoch_millis: current_time_millis(),
+                            refreshed_data: sux,
+                        }),
+                    }).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                        error_message: Some(err.description().to_string()),
+                        is_success: false,
+                        content: None,
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+
+
+    pub fn create_ffa_freeby(req: &mut iron::request::Request) -> IronResult<Response> {
+        let posted_body = extract_body(req);
+        println!("posted_body = {:?}", posted_body);
+        let parsed_body: CreateFreeForAll = serde_json::from_str(&posted_body).unwrap();
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let mut dat = datholder.write().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
+
+
+                let event = rustix_bl::rustix_event_shop::BLEvents::CreateFreeForAll {
+                    allowed_categories: parsed_body.allowed_categories,
+                    allowed_drinks: parsed_body.allowed_drinks,
+                    allowed_number_total: parsed_body.allowed_number_total,
+                    text_message: parsed_body.text_message,
+                    created_timestamp: current_time_millis(),
+                    donor: parsed_body.donor,
                 };
 
                 let result = ServableRustixImpl::check_apply_write(&mut dat, param, event);
@@ -975,7 +1164,8 @@ pub fn current_time_millis() -> i64 {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TypeScriptify)]
-pub struct RefreshedData { //TODO: use option<PaginatedResult<T>> instead for each field
+pub struct RefreshedData {
+    //TODO: use option<PaginatedResult<T>> instead for each field
     pub DetailInfoForUser: serde_json::Value,
     pub TopUsers: serde_json::Value,
     pub AllUsers: serde_json::Value,
@@ -1243,11 +1433,14 @@ mod tests {
             all_users: ParametersAllUsers { count_pars: ParametersAllUsersCount { searchterm: String::new() }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 1_000_000 } },
             all_items: ParametersAllItems { count_pars: ParametersAllItemsCount { searchterm: String::new() }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
             global_log: ParametersPurchaseLogGlobal { count_pars: ParametersPurchaseLogGlobalCount { millis_start: 0, millis_end: 0 }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
-            bills: ParametersBills { count_pars: ParametersBillsCount {
-                start_inclusive: 0,
-                end_exclusive: 0,
-                scope_user_id: None,
-            }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
+            bills: ParametersBills {
+                count_pars: ParametersBillsCount {
+                    start_inclusive: 0,
+                    end_exclusive: 0,
+                    scope_user_id: None,
+                },
+                pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 },
+            },
             open_ffa_freebies: ParametersOpenFFAFreebies {},
             top_personal_drinks: ParametersTopPersonalDrinks { user_id: 0, n: 0 },
             personal_log: ParametersPurchaseLogPersonal {
@@ -1321,11 +1514,14 @@ mod tests {
             all_users: ParametersAllUsers { count_pars: ParametersAllUsersCount { searchterm: String::new() }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 1_000_000 } },
             all_items: ParametersAllItems { count_pars: ParametersAllItemsCount { searchterm: String::new() }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
             global_log: ParametersPurchaseLogGlobal { count_pars: ParametersPurchaseLogGlobalCount { millis_start: 0, millis_end: 0 }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
-            bills: ParametersBills { count_pars: ParametersBillsCount {
-                start_inclusive: 0,
-                end_exclusive: 0,
-                scope_user_id: None,
-            }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
+            bills: ParametersBills {
+                count_pars: ParametersBillsCount {
+                    start_inclusive: 0,
+                    end_exclusive: 0,
+                    scope_user_id: None,
+                },
+                pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 },
+            },
             open_ffa_freebies: ParametersOpenFFAFreebies {},
             top_personal_drinks: ParametersTopPersonalDrinks { user_id: 0, n: 0 },
             personal_log: ParametersPurchaseLogPersonal {
