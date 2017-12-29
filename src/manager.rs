@@ -965,19 +965,116 @@ impl ServableRustix for ServableRustixImpl {
                 panic!("MakeSpecialPurchase supported at the moment (use CartPurchase instead!)")
             },
             a @ rustix_event_shop::BLEvents::CreateBill { .. } => {
-                unimplemented!()
+                let _b = &mut backend.apply(&a);
+                //refresh bills
+                let bills = Self::query_read(&*backend, Bills(app_state.bills))?;
+                Ok(RefreshedData {
+                    DetailInfoForUser: serde_json::Value::Null,
+                    TopUsers: serde_json::Value::Null,
+                    AllUsers: serde_json::Value::Null,
+                    AllItems: serde_json::Value::Null,
+                    PurchaseLogGlobal: serde_json::Value::Null,
+                    LastPurchases: serde_json::Value::Null,
+                    BillsCount: serde_json::Value::Null,
+                    Bills: bills,
+                    OpenFFAFreebies: serde_json::Value::Null,
+                    TopPersonalDrinks: serde_json::Value::Null,
+                    PurchaseLogPersonal: serde_json::Value::Null,
+                    IncomingFreebies: serde_json::Value::Null,
+                    OutgoingFreebies: serde_json::Value::Null,
+                })
             },
             a @ rustix_event_shop::BLEvents::FinalizeBill { .. } => {
-                unimplemented!()
+                let _b = &mut backend.apply(&a);
+                //refresh bills
+                //refresh incoming
+                //refresh outgoing
+                //refresh global log
+                //refresh personal log
+                //refresh detail info
+                //refresh last purchase
+                let last_log = Self::query_read(&*backend, PurchaseLogGlobal(ParametersPurchaseLogGlobal {
+                    count_pars: ParametersPurchaseLogGlobalCount { millis_start: server::current_time_millis() - (1000i64 * 60 * 60 * 24), millis_end: server::current_time_millis() + 1000i64 },
+                    pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 5 },
+                }))?;
+                let bills = Self::query_read(&*backend, Bills(app_state.bills))?;
+                let incoming = Self::query_read(&*backend, IncomingFreebies(app_state.incoming_freebies))?;
+                let outgoing = Self::query_read(&*backend, OutgoingFreebies(app_state.outgoing_freebies))?;
+                Ok(RefreshedData {
+                    DetailInfoForUser: Self::query_read(&*backend, DetailInfoForUser(app_state.personal_detail_infos))?,
+                    TopUsers: serde_json::Value::Null,
+                    AllUsers: serde_json::Value::Null,
+                    AllItems: serde_json::Value::Null,
+                    PurchaseLogGlobal: Self::query_read(&*backend, PurchaseLogGlobal(app_state.global_log))?,
+                    LastPurchases: last_log,
+                    BillsCount: serde_json::Value::Null,
+                    Bills: bills,
+                    OpenFFAFreebies: serde_json::Value::Null,
+                    TopPersonalDrinks: serde_json::Value::Null,
+                    PurchaseLogPersonal: Self::query_read(&*backend, PurchaseLogPersonal(app_state.personal_log))?,
+                    IncomingFreebies: incoming,
+                    OutgoingFreebies: outgoing,
+                })
             },
             a @ rustix_event_shop::BLEvents::ExportBill { .. } => {
-                unimplemented!()
+                let _b = &mut backend.apply(&a);
+                //refresh bills
+                let bills = Self::query_read(&*backend, Bills(app_state.bills))?;
+                Ok(RefreshedData {
+                    DetailInfoForUser: serde_json::Value::Null,
+                    TopUsers: serde_json::Value::Null,
+                    AllUsers: serde_json::Value::Null,
+                    AllItems: serde_json::Value::Null,
+                    PurchaseLogGlobal: serde_json::Value::Null,
+                    LastPurchases: serde_json::Value::Null,
+                    BillsCount: serde_json::Value::Null,
+                    Bills: bills,
+                    OpenFFAFreebies: serde_json::Value::Null,
+                    TopPersonalDrinks: serde_json::Value::Null,
+                    PurchaseLogPersonal: serde_json::Value::Null,
+                    IncomingFreebies: serde_json::Value::Null,
+                    OutgoingFreebies: serde_json::Value::Null,
+                })
             },
             a @ rustix_event_shop::BLEvents::DeleteUnfinishedBill { .. } => {
-                unimplemented!()
+                let _b = &mut backend.apply(&a);
+                //refresh bills
+                let bills = Self::query_read(&*backend, Bills(app_state.bills))?;
+                Ok(RefreshedData {
+                    DetailInfoForUser: serde_json::Value::Null,
+                    TopUsers: serde_json::Value::Null,
+                    AllUsers: serde_json::Value::Null,
+                    AllItems: serde_json::Value::Null,
+                    PurchaseLogGlobal: serde_json::Value::Null,
+                    LastPurchases: serde_json::Value::Null,
+                    BillsCount: serde_json::Value::Null,
+                    Bills: bills,
+                    OpenFFAFreebies: serde_json::Value::Null,
+                    TopPersonalDrinks: serde_json::Value::Null,
+                    PurchaseLogPersonal: serde_json::Value::Null,
+                    IncomingFreebies: serde_json::Value::Null,
+                    OutgoingFreebies: serde_json::Value::Null,
+                })
             },
             a @ rustix_event_shop::BLEvents::SetPriceForSpecial { .. } => {
-                unimplemented!()
+                let _b = &mut backend.apply(&a);
+                //refresh bills
+                let bills = Self::query_read(&*backend, Bills(app_state.bills))?;
+                Ok(RefreshedData {
+                    DetailInfoForUser: serde_json::Value::Null,
+                    TopUsers: serde_json::Value::Null,
+                    AllUsers: serde_json::Value::Null,
+                    AllItems: serde_json::Value::Null,
+                    PurchaseLogGlobal: serde_json::Value::Null,
+                    LastPurchases: serde_json::Value::Null,
+                    BillsCount: serde_json::Value::Null,
+                    Bills: bills,
+                    OpenFFAFreebies: serde_json::Value::Null,
+                    TopPersonalDrinks: serde_json::Value::Null,
+                    PurchaseLogPersonal: serde_json::Value::Null,
+                    IncomingFreebies: serde_json::Value::Null,
+                    OutgoingFreebies: serde_json::Value::Null,
+                })
             },
             rustix_event_shop::BLEvents::MakeShoppingCartPurchase { user_id, specials, item_ids, timestamp } => {
                 let b = &mut backend.cart_purchase(user_id, specials, item_ids, timestamp);
