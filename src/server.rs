@@ -125,6 +125,9 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     router.get("/purchases/global", global_log, "globallog");
     router.get("/purchases/personal", personal_log, "personallog");
     router.get("/bills", get_bills, "getbills");
+    router.get("/giveout/ffa", get_ffa_giveouts, "ffagiveouts");
+    router.get("/giveout/incoming", get_incoming_giveouts, "incominggiveouts");
+    router.get("/giveout/outgoing", get_outgoing_giveouts, "outgoinggiveouts");
     router.post("/users", add_user, "adduser");
     router.post("/items", add_item, "additem");
     router.post("/users/update", update_user, "updateuser");
@@ -925,6 +928,81 @@ pub mod responsehandlers {
                 let param: ParametersTopPersonalDrinks = serde_json::from_str(&json_query).unwrap();
 
                 let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::TopPersonalDrinks(param));
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                        total_count: 0,
+                        from: 0,
+                        to: 0,
+                        results: Vec::new(),
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+    pub fn get_ffa_giveouts(req: &mut iron::request::Request) -> IronResult<Response> {
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let dat = datholder.read().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersOpenFFAFreebies = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::OpenFFAFreebies(param));
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                        total_count: 0,
+                        from: 0,
+                        to: 0,
+                        results: Vec::new(),
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+    pub fn get_incoming_giveouts(req: &mut iron::request::Request) -> IronResult<Response> {
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let dat = datholder.read().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersIncomingFreebies = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::IncomingFreebies(param));
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                        total_count: 0,
+                        from: 0,
+                        to: 0,
+                        results: Vec::new(),
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+    pub fn get_outgoing_giveouts(req: &mut iron::request::Request) -> IronResult<Response> {
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let dat = datholder.read().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersOutgoingFreebies = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::OutgoingFreebies(param));
 
                 match result {
                     Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
