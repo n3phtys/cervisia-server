@@ -1441,7 +1441,7 @@ mod tests {
                 },
                 pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 },
             },
-            open_ffa_freebies: ParametersOpenFFAFreebies {},
+            open_ffa_freebies: ParametersOpenFFAFreebies { pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
             top_personal_drinks: ParametersTopPersonalDrinks { user_id: 0, n: 0 },
             personal_log: ParametersPurchaseLogPersonal {
                 count_pars: ParametersPurchaseLogPersonalCount {
@@ -1451,8 +1451,8 @@ mod tests {
                 },
                 pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 },
             },
-            incoming_freebies: ParametersIncomingFreebies {},
-            outgoing_freebies: ParametersOutgoingFreebies {},
+            incoming_freebies: ParametersIncomingFreebies { count_pars: ParametersIncomingFreebiesCount { recipient_id: 0 }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
+            outgoing_freebies: ParametersOutgoingFreebies { count_pars: ParametersOutgoingFreebiesCount { donor_id: 0 }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
             personal_detail_infos: ParametersDetailInfoForUser { user_id: 0 },
         };
 
@@ -1522,7 +1522,7 @@ mod tests {
                 },
                 pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 },
             },
-            open_ffa_freebies: ParametersOpenFFAFreebies {},
+            open_ffa_freebies: ParametersOpenFFAFreebies { pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
             top_personal_drinks: ParametersTopPersonalDrinks { user_id: 0, n: 0 },
             personal_log: ParametersPurchaseLogPersonal {
                 count_pars: ParametersPurchaseLogPersonalCount {
@@ -1532,8 +1532,8 @@ mod tests {
                 },
                 pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 },
             },
-            incoming_freebies: ParametersIncomingFreebies {},
-            outgoing_freebies: ParametersOutgoingFreebies {},
+            incoming_freebies: ParametersIncomingFreebies { count_pars: ParametersIncomingFreebiesCount { recipient_id: 0 }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
+            outgoing_freebies: ParametersOutgoingFreebies { count_pars: ParametersOutgoingFreebiesCount { donor_id: 0 }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
             personal_detail_infos: ParametersDetailInfoForUser { user_id: 0 },
         };
 

@@ -121,7 +121,7 @@ pub struct ParametersBills {
 
 #[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersOpenFFAFreebies {
-//TODO: implement
+    pub pagination: ParametersPagination,
 }
 
 #[derive(Serialize, Deserialize, TypeScriptify)]
@@ -147,22 +147,24 @@ pub struct ParametersPurchaseLogPersonal {
 
 #[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersIncomingFreebiesCount {
-//TODO: implement
+    pub recipient_id: u32,
 }
 
 #[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersIncomingFreebies {
-//TODO: implement
+    pub count_pars: ParametersIncomingFreebiesCount,
+    pub pagination: ParametersPagination,
 }
 
 #[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersOutgoingFreebiesCount {
-//TODO: implement
+    pub donor_id: u32,
 }
 
 #[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersOutgoingFreebies {
-    //TODO: implement
+    pub count_pars: ParametersOutgoingFreebiesCount,
+    pub pagination: ParametersPagination,
 }
 
 #[derive(Serialize, Deserialize, TypeScriptify)]
@@ -353,8 +355,6 @@ impl ServableRustix for ServableRustixImpl {
         use manager::ReadQueryParams::*;
         use rustix_bl::datastore::DatastoreQueries;
 
-        //TODO: implement bit by bit
-
         match query {
             AllItems(param) => {
                 let xs = backend.datastore.items_searchhit_ids(&param.count_pars.searchterm);
@@ -375,7 +375,7 @@ impl ServableRustix for ServableRustixImpl {
                 };
 
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
-            }
+            },
             AllUsers(param) => {
                 let xs = backend.datastore.users_searchhit_ids(&param.count_pars.searchterm);
 
@@ -398,7 +398,7 @@ impl ServableRustix for ServableRustixImpl {
                 };
 
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
-            }
+            },
             TopUsers(param) => {
                 //TODO: this requires datastore to keep all users sorted descendingly if we want to take by n
 
@@ -492,7 +492,7 @@ impl ServableRustix for ServableRustixImpl {
                 };
 
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
-            }
+            },
             TopPersonalDrinks(param) => {
                 let xs = backend.datastore.top_item_ids(param.user_id, param.n);
 
@@ -507,7 +507,7 @@ impl ServableRustix for ServableRustixImpl {
                 };
 
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
-            }
+            },
             PurchaseLogGlobal(param) => {
                 let mut xs = backend.datastore.global_log_filtered(param.count_pars.millis_start, param.count_pars.millis_end).to_vec();
 
@@ -530,7 +530,7 @@ impl ServableRustix for ServableRustixImpl {
                 };
 
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
-            }
+            },
             PurchaseLogPersonal(param) => {
                 let mut xs = backend.datastore.personal_log_filtered(param.count_pars.user_id, param.count_pars.millis_start, param.count_pars.millis_end);
 
@@ -552,7 +552,7 @@ impl ServableRustix for ServableRustixImpl {
                 };
 
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
-            }
+            },
             Bills(param) => {
                 let mut xs = backend.datastore.bills_filtered(param.count_pars.scope_user_id, param.count_pars.start_inclusive, param.count_pars.end_exclusive).to_vec();
 
@@ -578,8 +578,68 @@ impl ServableRustix for ServableRustixImpl {
                 println!("Result b = {:?}", b);
 
                 return Ok(b);
-            }
-            _ => unimplemented!()
+            },
+            AllUsersCount(param) => {
+                panic!("Not supported")
+            },
+            AllItemsCount(param) => {
+                panic!("Not supported")
+            },
+            PurchaseLogGlobalCount(param) => {
+                panic!("Not supported")
+            },
+            BillsCount(param) => {
+                panic!("Not supported")
+            },
+            OpenFFAFreebies(param) => {
+                let result: PaginatedResult<Freeby> = PaginatedResult {
+                    total_count: backend.datastore.open_ffa.len() as u32,
+                    from: param.pagination.start_inclusive,
+                    to: param.pagination.end_exclusive,
+                    results: backend.datastore.open_ffa.iter().map(|x|x.clone()).collect(),
+                };
+                return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
+            },
+            PurchaseLogPersonalCount(param) => {
+                panic!("Not supported")
+            },
+            IncomingFreebiesCount(param) => {
+                panic!("Not supported")
+            },
+            IncomingFreebies(param) => {
+                let xsopt = backend.datastore.open_freebies.get(&param.count_pars.recipient_id);
+                let emptyvec: Vec<Freeby> = Vec::new();
+                let xs : &Vec<Freeby> = xsopt.unwrap_or(&emptyvec);
+                let result: PaginatedResult<Freeby> = PaginatedResult {
+                    total_count: xs.len() as u32,
+                    from: param.pagination.start_inclusive,
+                    to: param.pagination.end_exclusive,
+                    results: xs.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize).map(|r| r.clone()).collect(),
+                };
+                return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
+            },
+            OutgoingFreebiesCount(param) => {
+                panic!("Not supported")
+            },
+            OutgoingFreebies(param) => {
+                let mut xs: Vec<Freeby> = Vec::new();
+
+                for (key, value) in &backend.datastore.open_freebies {
+                    for fb in value {
+                        if fb.get_donor() == param.count_pars.donor_id {
+                            xs.push(fb.clone());
+                        }
+                    }
+                }
+
+                let result: PaginatedResult<Freeby> = PaginatedResult {
+                    total_count: xs.len() as u32,
+                    from: param.pagination.start_inclusive,
+                    to: param.pagination.end_exclusive,
+                    results: xs.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize).map(|r| r.clone()).collect(),
+                };
+                return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
+            },
         }
     }
 
@@ -806,7 +866,37 @@ impl ServableRustix for ServableRustixImpl {
                     IncomingFreebies: serde_json::Value::Null,
                     OutgoingFreebies: serde_json::Value::Null,
                 })
-            }
+            },
+            a @ rustix_event_shop::BLEvents::MakeFreeForAllPurchase { .. } => {
+                unimplemented!()
+            },
+            a @ rustix_event_shop::BLEvents::CreateFreeForAll { .. } => {
+                unimplemented!()
+            },
+            a @ rustix_event_shop::BLEvents::CreateFreeCount { .. } => {
+                unimplemented!()
+            },
+            a @ rustix_event_shop::BLEvents::CreateFreeBudget { .. } => {
+                unimplemented!()
+            },
+            a @ rustix_event_shop::BLEvents::MakeSpecialPurchase { .. } => {
+                unimplemented!()
+            },
+            a @ rustix_event_shop::BLEvents::CreateBill { .. } => {
+                unimplemented!()
+            },
+            a @ rustix_event_shop::BLEvents::FinalizeBill { .. } => {
+                unimplemented!()
+            },
+            a @ rustix_event_shop::BLEvents::ExportBill { .. } => {
+                unimplemented!()
+            },
+            a @ rustix_event_shop::BLEvents::DeleteUnfinishedBill { .. } => {
+                unimplemented!()
+            },
+            a @ rustix_event_shop::BLEvents::SetPriceForSpecial { .. } => {
+                unimplemented!()
+            },
             rustix_event_shop::BLEvents::MakeShoppingCartPurchase { user_id, specials, item_ids, timestamp } => {
                 let b = &mut backend.cart_purchase(user_id, specials, item_ids, timestamp);
 
@@ -845,8 +935,7 @@ impl ServableRustix for ServableRustixImpl {
                     IncomingFreebies: serde_json::Value::Null,
                     OutgoingFreebies: serde_json::Value::Null,
                 })
-            }
-            _ => unimplemented!()
+            },
         }
     }
 }
