@@ -434,7 +434,7 @@ impl ServableRustix for ServableRustixImpl {
                 let mut cost = 0u32;
 
                 for x in xs {
-                    if backend.datastore.users.get(x.get_user_id()).is_some() && backend.datastore.items.get(x.get_item_id()).is_some() {
+                    if backend.datastore.users.get(x.get_user_id()).is_some() && x.has_item_id() && backend.datastore.items.get(x.get_item_id()).is_some() {
                         let itemname = backend.datastore.users.get(x.get_user_id()).unwrap().username.to_string();
                         let itemname2 = itemname.to_string();
                         let oldv = hm.remove(&itemname).unwrap_or(0u32);
