@@ -275,6 +275,42 @@ fn enrich_purchase(incoming: &rustix_bl::datastore::Purchase, datastore: &rustix
     };
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, TypeScriptify)]
+pub struct EnrichedFFA {
+    pub id: u64,
+    pub items: Vec<rustix_bl::datastore::Item>,
+    pub total: u16,
+    pub left: u16,
+    pub text_message: String,
+    pub created_timestamp: i64,
+    pub donor: rustix_bl::datastore::User,
+}
+
+fn enrich_ffa(incoming: &rustix_bl::datastore::Freeby, datastore: &rustix_bl::datastore::Datastore) -> std::result::Result<EnrichedFFA, Box<std::error::Error>> {
+    return match *incoming {
+        rustix_bl::datastore::Freeby::FFA { ref id, ref allowed_categories, ref allowed_drinks, ref allowed_number_total, ref allowed_number_used, ref text_message, ref created_timestamp, ref donor } => {
+            let mut items: Vec<rustix_bl::datastore::Item> = Vec::new();
+            let ids: HashSet<&u32> = allowed_drinks.iter().collect();
+            let cats: HashSet<String> = allowed_categories.iter().map(|s|s.to_string()).collect();
+            for (_, it) in &datastore.items {
+                if (!it.deleted) && (ids.contains(&it.item_id) || (it.category.is_some() && cats.contains(&it.category.clone().unwrap()))) {
+                    items.push(it.clone());
+                }
+            }
+            Ok(EnrichedFFA {
+                id: *id,
+                items: items,
+                total: *allowed_number_total,
+                left: (allowed_number_total - allowed_number_used),
+                text_message: text_message.to_string(),
+                created_timestamp: *created_timestamp,
+                donor: datastore.users.get(donor).unwrap().clone(),
+            })
+        }
+        _ => panic!("enrich_ffa on non-FFA called")
+    };
+}
+
 
 
 pub trait ServableRustix {
@@ -538,11 +574,19 @@ impl ServableRustix for ServableRustixImpl {
                 panic!("Not supported")
             },
             OpenFFAFreebies(param) => {
-                let result: PaginatedResult<Freeby> = PaginatedResult {
+                let xs: Vec<Freeby> = backend.datastore.open_ffa.iter().map(|x|x.clone()).collect();
+
+                let mut xv : Vec<EnrichedFFA> = Vec::new();
+
+                for ffa in xs {
+                    xv.push(enrich_ffa(&ffa, &backend.datastore)?);
+                }
+
+                let result: PaginatedResult<EnrichedFFA> = PaginatedResult {
                     total_count: backend.datastore.open_ffa.len() as u32,
                     from: param.pagination.start_inclusive,
                     to: param.pagination.end_exclusive,
-                    results: backend.datastore.open_ffa.iter().map(|x|x.clone()).collect(),
+                    results: xv,
                 };
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
             },

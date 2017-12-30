@@ -74,6 +74,7 @@ fn typescript_definitions() -> Vec<String> {
         ParametersOutgoingFreebiesCount::type_script_ify(),
         ParametersOutgoingFreebies::type_script_ify(),
         ParametersDetailInfoForUser::type_script_ify(),
+        EnrichedFFA::type_script_ify(),
         UserDetailInfo::type_script_ify(),
         manager::Purchase::type_script_ify(),
         rustix_bl::datastore::User::type_script_ify(),
