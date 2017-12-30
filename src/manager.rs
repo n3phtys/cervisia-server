@@ -173,36 +173,6 @@ pub struct ParametersDetailInfoForUser {
 }
 
 
-pub trait RustixReadsGlobal {
-    fn top_users(par: &ParametersTopUsers) -> Vec<User>;
-    fn all_users_count(par: &ParametersAllUsersCount) -> u32;
-    fn all_users(par: &ParametersAllUsers) -> Vec<User>;
-
-    fn all_items_count(par: &ParametersAllItemsCount) -> u32;
-    fn all_items(par: &ParametersAllItems) -> Vec<Item>;
-
-    fn all_bills_count(par: &ParametersBillsCount) -> u32;
-    fn all_bills(par: &ParametersBills) -> u32;
-
-
-    fn purchase_log_global_count(par: &ParametersPurchaseLogGlobalCount) -> u32;
-    fn purchase_log_global(par: &ParametersPurchaseLogGlobal) -> Vec<Purchase>;
-
-    //fn open_ffa_items(par : &ParametersAllUsers) -> Vec<Freeby>; //TODO: not implemented in rustix yet
-}
-
-pub trait RustixReadsPersonal {
-    fn top_drinks_per_user(par: &ParametersTopPersonalDrinks) -> HashMap<u64, Item>;
-    fn purchase_log_personal_count(par: &ParametersPurchaseLogPersonalCount) -> u32;
-    fn purchase_log_personal(par: &ParametersPurchaseLogPersonal) -> Vec<Purchase>;
-
-    //fn freebies_incoming_count(par : &ParametersAllUsers) -> Vec<Freeby>; //TODO: not implemented in rustix yet
-    //fn freebies_incoming(par : &ParametersAllUsers) -> Vec<Freeby>; //TODO: not implemented in rustix yet
-    //fn freebies_outgoing_count(par : &ParametersAllUsers) -> Vec<Freeby>; //TODO: not implemented in rustix yet
-    //fn freebies_outgoing(par : &ParametersAllUsers) -> Vec<Freeby>; //TODO: not implemented in rustix yet
-
-    fn detail_info_for_user(par: &ParametersDetailInfoForUser) -> UserDetailInfo;
-}
 
 #[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct UserDetailInfo {
@@ -305,32 +275,8 @@ fn enrich_purchase(incoming: &rustix_bl::datastore::Purchase, datastore: &rustix
     };
 }
 
-pub trait RustixWrites {
-    fn simple_purchase();
-    fn special_purchase();
-    fn freebie_purchase();
-    fn ffa_purchase();
-
-    fn create_user();
-    fn delete_user();
-    fn edit_user();
-
-    fn create_item();
-    fn delete_item();
-    fn edit_item();
-
-    fn create_bill();
-
-    fn undo_purchase();
-}
-
-pub trait RustixSupport {
-    fn send_bill_via_mail();
-    fn send_personal_statistic_via_mail();
-}
 
 
-//TODO: implement this / improve signature before implementing
 pub trait ServableRustix {
     /**
     returns json array or number
@@ -1200,6 +1146,9 @@ pub fn fill_backend_with_large_test_data(backend: &mut Backend) -> () {
             (*back).purchase(user_id, item_id, timestamp_counter);
         }
     }
+
+    let _ = (*back).create_ffa(vec!["Liquor".to_string()], vec![0, 1, 2], 3, "I'm donating this to present how this would work in the current cervisia ui".to_string(), timestamp_counter + 1, 0);
+    let _ = (*back).create_ffa(vec!["Beer".to_string()], vec![], 20, "This is the second instance which I'm donating to show how this would work in the current cervisia ui".to_string(), timestamp_counter + 10000, 1);
 
     (*back).create_bill(0i64, timestamp_counter + (1000i64 * 3600 * 24 * 365 * 20), UserGroup::AllUsers, "some bill comment".to_string());
 }
