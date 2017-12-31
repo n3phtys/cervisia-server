@@ -1183,7 +1183,31 @@ impl ServableRustix for ServableRustixImpl {
                     OutgoingFreebies: serde_json::Value::Null,
                 })
             },
-            a @ rustix_event_shop::BLEvents::SetPriceForSpecial { .. } => {
+            a @ rustix_event_shop::BLEvents::UpdateBill { .. } => {
+                let _b = &mut backend.apply(&a);
+                //refresh bills
+                let bills = Self::query_read(&*backend, Bills(app_state.bills))?;
+
+                let changed_bill_details = Self::query_read(&*backend, BillDetails(app_state.bill_detail_infos))?;
+
+                Ok(RefreshedData {
+                    DetailInfoForUser: serde_json::Value::Null,
+                    TopUsers: serde_json::Value::Null,
+                    AllUsers: serde_json::Value::Null,
+                    AllItems: serde_json::Value::Null,
+                    PurchaseLogGlobal: serde_json::Value::Null,
+                    LastPurchases: serde_json::Value::Null,
+                    BillsCount: serde_json::Value::Null,
+                    Bills: bills,
+                    BillDetails: changed_bill_details,
+                    OpenFFAFreebies: serde_json::Value::Null,
+                    TopPersonalDrinks: serde_json::Value::Null,
+                    PurchaseLogPersonal: serde_json::Value::Null,
+                    IncomingFreebies: serde_json::Value::Null,
+                    OutgoingFreebies: serde_json::Value::Null,
+                })
+            },
+                a @ rustix_event_shop::BLEvents::SetPriceForSpecial { .. } => {
                 let _b = &mut backend.apply(&a);
                 //refresh bills
                 let bills = Self::query_read(&*backend, Bills(app_state.bills))?;

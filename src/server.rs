@@ -65,6 +65,7 @@ fn typescript_definitions() -> Vec<String> {
         ParametersPurchaseLogGlobal::type_script_ify(),
         ParametersBillsCount::type_script_ify(),
         ParametersBills::type_script_ify(),
+        ParametersBillDetails::type_script_ify(),
         ParametersOpenFFAFreebies::type_script_ify(),
         ParametersTopPersonalDrinks::type_script_ify(),
         ParametersPurchaseLogPersonalCount::type_script_ify(),
@@ -76,6 +77,7 @@ fn typescript_definitions() -> Vec<String> {
         ParametersDetailInfoForUser::type_script_ify(),
         EnrichedFFA::type_script_ify(),
         UserDetailInfo::type_script_ify(),
+        DetailedBill::type_script_ify(),
         manager::Purchase::type_script_ify(),
         rustix_bl::datastore::User::type_script_ify(),
         rustix_bl::datastore::UserGroup::type_script_ify(),
@@ -140,6 +142,14 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     router.post("/purchases/ffa", ffa_purchase, "addffapurchase");
     router.post("/purchases/undo/user", undo_purchase_by_user, "undopurchaseuser");
     router.post("/purchases/undo/admin", undo_purchase_by_admin, "undopurchaseadmin");
+
+    router.post("/bill/create", create_bill, "createbill");
+    router.post("/bill/update", update_bill, "updatebill");
+    router.post("/bill/delete", delete_bill, "deletebill");
+    router.post("/bill/finalize", finalize_bill, "finalizebill");
+    router.post("/bill/export", export_bill, "exportbill");
+
+    router.post("/purchases/special/setprice", set_special_price, "setspecialprice");
 
     router.post("/giveout/budget", create_budget_freeby, "createbudgetfreeby");
     router.post("/giveout/count", create_count_freeby, "createcountfreeby");
@@ -858,6 +868,233 @@ pub mod responsehandlers {
                     itemname: parsed_body.name,
                     price_cents: parsed_body.price_cents,
                     category: parsed_body.category,
+                });
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                        error_message: None,
+                        is_success: true,
+                        content: Some(SuccessContent {
+                            timestamp_epoch_millis: current_time_millis(),
+                            refreshed_data: sux,
+                        }),
+                    }).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                        error_message: Some(err.description().to_string()),
+                        is_success: false,
+                        content: None,
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+    pub fn create_bill(req: &mut iron::request::Request) -> IronResult<Response> {
+        let posted_body = extract_body(req);
+        println!("posted_body = {:?}", posted_body);
+        let parsed_body: CreateBill = serde_json::from_str(&posted_body).unwrap();
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let mut dat = datholder.write().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::CreateBill {
+                    timestamp_from: parsed_body.timestamp_from,
+                    timestamp_to: parsed_body.timestamp_to,
+                    user_ids: parsed_body.user_ids,
+                    comment: parsed_body.comment,
+                });
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                        error_message: None,
+                        is_success: true,
+                        content: Some(SuccessContent {
+                            timestamp_epoch_millis: current_time_millis(),
+                            refreshed_data: sux,
+                        }),
+                    }).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                        error_message: Some(err.description().to_string()),
+                        is_success: false,
+                        content: None,
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+    pub fn update_bill(req: &mut iron::request::Request) -> IronResult<Response> {
+        let posted_body = extract_body(req);
+        println!("posted_body = {:?}", posted_body);
+        let parsed_body: EditBill = serde_json::from_str(&posted_body).unwrap();
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let mut dat = datholder.write().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::UpdateBill {
+                    timestamp_from: parsed_body.timestamp_from,
+                    timestamp_to: parsed_body.timestamp_to,
+                    comment: parsed_body.comment,
+                    users: parsed_body.user_ids,
+                    users_that_will_not_be_billed: parsed_body.exclude_user_ids,
+                });
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                        error_message: None,
+                        is_success: true,
+                        content: Some(SuccessContent {
+                            timestamp_epoch_millis: current_time_millis(),
+                            refreshed_data: sux,
+                        }),
+                    }).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                        error_message: Some(err.description().to_string()),
+                        is_success: false,
+                        content: None,
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+    pub fn delete_bill(req: &mut iron::request::Request) -> IronResult<Response> {
+        let posted_body = extract_body(req);
+        println!("posted_body = {:?}", posted_body);
+        let parsed_body: DeleteUnfinishedBill = serde_json::from_str(&posted_body).unwrap();
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let mut dat = datholder.write().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::DeleteUnfinishedBill {
+                    timestamp_from: parsed_body.timestamp_from,
+                    timestamp_to: parsed_body.timestamp_to,
+                });
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                        error_message: None,
+                        is_success: true,
+                        content: Some(SuccessContent {
+                            timestamp_epoch_millis: current_time_millis(),
+                            refreshed_data: sux,
+                        }),
+                    }).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                        error_message: Some(err.description().to_string()),
+                        is_success: false,
+                        content: None,
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+    pub fn finalize_bill(req: &mut iron::request::Request) -> IronResult<Response> {
+        let posted_body = extract_body(req);
+        println!("posted_body = {:?}", posted_body);
+        let parsed_body: FinalizeBill = serde_json::from_str(&posted_body).unwrap();
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let mut dat = datholder.write().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::FinalizeBill {
+                    timestamp_from: parsed_body.timestamp_from,
+                    timestamp_to: parsed_body.timestamp_to,
+                });
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                        error_message: None,
+                        is_success: true,
+                        content: Some(SuccessContent {
+                            timestamp_epoch_millis: current_time_millis(),
+                            refreshed_data: sux,
+                        }),
+                    }).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                        error_message: Some(err.description().to_string()),
+                        is_success: false,
+                        content: None,
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+    pub fn export_bill(req: &mut iron::request::Request) -> IronResult<Response> {
+        let posted_body = extract_body(req);
+        println!("posted_body = {:?}", posted_body);
+        let parsed_body: ExportBill = serde_json::from_str(&posted_body).unwrap();
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let mut dat = datholder.write().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::ExportBill {
+                    timestamp_from: parsed_body.timestamp_from,
+                    timestamp_to: parsed_body.timestamp_to,
+                });
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                        error_message: None,
+                        is_success: true,
+                        content: Some(SuccessContent {
+                            timestamp_epoch_millis: current_time_millis(),
+                            refreshed_data: sux,
+                        }),
+                    }).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
+                        error_message: Some(err.description().to_string()),
+                        is_success: false,
+                        content: None,
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+    pub fn set_special_price(req: &mut iron::request::Request) -> IronResult<Response> {
+        let posted_body = extract_body(req);
+        println!("posted_body = {:?}", posted_body);
+        let parsed_body: SetPriceForSpecial = serde_json::from_str(&posted_body).unwrap();
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let mut dat = datholder.write().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::SetPriceForSpecial {
+                    unique_id: parsed_body.unique_id,
+                    price: parsed_body.price,
                 });
 
                 match result {
