@@ -35,6 +35,7 @@ pub enum ReadQueryParams {
     PurchaseLogGlobal(ParametersPurchaseLogGlobal),
     BillsCount(ParametersBillsCount),
     Bills(ParametersBills),
+    BillDetails(ParametersBillDetails),
     OpenFFAFreebies(ParametersOpenFFAFreebies),
     TopPersonalDrinks(ParametersTopPersonalDrinks),
     PurchaseLogPersonalCount(ParametersPurchaseLogPersonalCount),
@@ -53,12 +54,20 @@ pub struct ParametersAll {
     pub all_items: ParametersAllItems,
     pub global_log: ParametersPurchaseLogGlobal,
     pub bills: ParametersBills,
+    pub bill_detail_infos: ParametersBillDetails,
     pub open_ffa_freebies: ParametersOpenFFAFreebies,
     pub top_personal_drinks: ParametersTopPersonalDrinks,
     pub personal_log: ParametersPurchaseLogPersonal,
     pub incoming_freebies: ParametersIncomingFreebies,
     pub outgoing_freebies: ParametersOutgoingFreebies,
     pub personal_detail_infos: ParametersDetailInfoForUser,
+}
+
+
+#[derive(Serialize, Deserialize, TypeScriptify)]
+pub struct ParametersBillDetails {
+    pub timestamp_from: Option<i64>,
+    pub timestamp_to: Option<i64>,
 }
 
 
@@ -309,6 +318,18 @@ fn enrich_ffa(incoming: &rustix_bl::datastore::Freeby, datastore: &rustix_bl::da
         }
         _ => panic!("enrich_ffa on non-FFA called")
     };
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, TypeScriptify)]
+pub struct DetailedBill {
+    pub timestamp_from: i64,
+    pub timestamp_to: i64,
+    pub specials: Vec<Purchase>,
+    pub set_users: Vec<rustix_bl::datastore::User>,
+    pub unset_users: Vec<rustix_bl::datastore::User>,
+    pub bill_state: BillState,
+    pub comment: String,
+    pub users: UserGroup,
 }
 
 
@@ -575,6 +596,80 @@ impl ServableRustix for ServableRustixImpl {
 
                 return Ok(b);
             },
+            BillDetails(param) => {
+                let result = if param.timestamp_from.is_some() && param.timestamp_to.is_some() {
+
+                    let ts_from = param.timestamp_from.unwrap();
+                    let ts_to = param.timestamp_to.unwrap();
+
+                    let bill: Bill = {
+                        backend.datastore.get_bill(ts_from, ts_to).unwrap_or_error()?.clone()
+                    };
+
+                    let specials_ids = backend.datastore.get_specials_to_bill(ts_from, ts_to);
+                    let mut specials: Vec<Purchase> = vec![];
+
+                    for special_id in &specials_ids {
+                        let tmp: rustix_bl::datastore::Purchase = backend.datastore.get_purchase(*special_id).unwrap_or_error()?;
+                        specials.push(enrich_purchase(&tmp,&backend.datastore)?);
+                    }
+
+                    let all_users_ids = backend.datastore.get_users_to_bill(ts_from, ts_to);
+                    let unset_user_ids: HashSet<u32> = backend.datastore.get_un_set_users_to_bill(ts_from, ts_to).iter().map(|x|*x).collect();
+
+                    let mut unset_users: Vec<rustix_bl::datastore::User> = Vec::new();
+                    let mut set_users: Vec<rustix_bl::datastore::User> = Vec::new();
+
+                    for id in all_users_ids {
+                        if unset_user_ids.contains(&id) {
+                            unset_users.push(backend.datastore.users.get(&id).unwrap_or_error()?.clone());
+                        } else {
+                            set_users.push(backend.datastore.users.get(&id).unwrap_or_error()?.clone());
+                        }
+                    }
+
+
+                    let xs = vec![
+                        DetailedBill {
+                        timestamp_from: ts_from,
+                        timestamp_to: ts_to,
+                        specials: specials,
+                        set_users: set_users,
+                        unset_users: unset_users,
+                        bill_state: bill.bill_state,
+                        comment: bill.comment,
+                        users: bill.users,
+                    }];
+
+                    let res: PaginatedResult<DetailedBill> = PaginatedResult {
+                        total_count: xs.len() as u32,
+                        from: 0,
+                        to: xs.len() as u32,
+                        results: xs,
+                    };
+                    res
+                } else {
+                    let res: PaginatedResult<DetailedBill> = PaginatedResult {
+                        total_count: 0,
+                        from: 0,
+                        to: 0,
+                        results: vec![],
+                    };
+                    res
+                };
+
+                println!("Serializing");
+
+                let a = &serde_json::to_string(&result)?;
+
+                println!("Result a = {:?}", a);
+
+                let b = serde_json::from_str(a)?;
+
+                println!("Result b = {:?}", b);
+
+                return Ok(b);
+            },
             AllUsersCount(param) => {
                 panic!("Not supported")
             },
@@ -668,6 +763,7 @@ impl ServableRustix for ServableRustixImpl {
                     LastPurchases: serde_json::Value::Null,
                     BillsCount: serde_json::Value::Null,
                     Bills: serde_json::Value::Null,
+                    BillDetails: serde_json::Value::Null,
                     OpenFFAFreebies: serde_json::Value::Null,
                     TopPersonalDrinks: serde_json::Value::Null,
                     PurchaseLogPersonal: serde_json::Value::Null,
@@ -693,6 +789,7 @@ impl ServableRustix for ServableRustixImpl {
                     LastPurchases: serde_json::Value::Null,
                     BillsCount: serde_json::Value::Null,
                     Bills: serde_json::Value::Null,
+                    BillDetails: serde_json::Value::Null,
                     OpenFFAFreebies: serde_json::Value::Null,
                     TopPersonalDrinks: serde_json::Value::Null,
                     PurchaseLogPersonal: serde_json::Value::Null,
@@ -708,6 +805,9 @@ impl ServableRustix for ServableRustixImpl {
                 let all_list = Self::query_read(&*backend, AllUsers(app_state.all_users))?;
                 //refresh top users
                 let top_list = Self::query_read(&*backend, TopUsers(app_state.top_users))?;
+
+                let changed_bill_details = Self::query_read(&*backend, BillDetails(app_state.bill_detail_infos))?;
+
                 Ok(RefreshedData {
                     DetailInfoForUser: serde_json::Value::Null,
                     TopUsers: top_list,
@@ -717,6 +817,7 @@ impl ServableRustix for ServableRustixImpl {
                     LastPurchases: serde_json::Value::Null,
                     BillsCount: serde_json::Value::Null,
                     Bills: serde_json::Value::Null,
+                    BillDetails: changed_bill_details,
                     OpenFFAFreebies: serde_json::Value::Null,
                     TopPersonalDrinks: serde_json::Value::Null,
                     PurchaseLogPersonal: serde_json::Value::Null,
@@ -738,6 +839,7 @@ impl ServableRustix for ServableRustixImpl {
                     LastPurchases: serde_json::Value::Null,
                     BillsCount: serde_json::Value::Null,
                     Bills: serde_json::Value::Null,
+                    BillDetails: serde_json::Value::Null,
                     OpenFFAFreebies: serde_json::Value::Null,
                     TopPersonalDrinks: serde_json::Value::Null,
                     PurchaseLogPersonal: serde_json::Value::Null,
@@ -752,6 +854,9 @@ impl ServableRustix for ServableRustixImpl {
                 let all_list = Self::query_read(&*backend, AllUsers(app_state.all_users))?;
                 //refresh top users
                 let top_list = Self::query_read(&*backend, TopUsers(app_state.top_users))?;
+
+                let changed_bill_details = Self::query_read(&*backend, BillDetails(app_state.bill_detail_infos))?;
+
                 Ok(RefreshedData {
                     DetailInfoForUser: serde_json::Value::Null,
                     TopUsers: top_list,
@@ -761,6 +866,7 @@ impl ServableRustix for ServableRustixImpl {
                     LastPurchases: serde_json::Value::Null,
                     BillsCount: serde_json::Value::Null,
                     Bills: serde_json::Value::Null,
+                    BillDetails: changed_bill_details,
                     OpenFFAFreebies: serde_json::Value::Null,
                     TopPersonalDrinks: serde_json::Value::Null,
                     PurchaseLogPersonal: serde_json::Value::Null,
@@ -782,6 +888,7 @@ impl ServableRustix for ServableRustixImpl {
                     LastPurchases: serde_json::Value::Null,
                     BillsCount: serde_json::Value::Null,
                     Bills: serde_json::Value::Null,
+                    BillDetails: serde_json::Value::Null,
                     OpenFFAFreebies: serde_json::Value::Null,
                     TopPersonalDrinks: serde_json::Value::Null,
                     PurchaseLogPersonal: serde_json::Value::Null,
@@ -823,6 +930,7 @@ impl ServableRustix for ServableRustixImpl {
                     LastPurchases: last_log,
                     BillsCount: serde_json::Value::Null,
                     Bills: serde_json::Value::Null,
+                    BillDetails: serde_json::Value::Null,
                     OpenFFAFreebies: serde_json::Value::Null,
                     TopPersonalDrinks: top_items,
                     PurchaseLogPersonal: personal_log,
@@ -864,6 +972,7 @@ impl ServableRustix for ServableRustixImpl {
                     LastPurchases: last_log,
                     BillsCount: serde_json::Value::Null,
                     Bills: serde_json::Value::Null,
+                    BillDetails: serde_json::Value::Null,
                     OpenFFAFreebies: serde_json::Value::Null,
                     TopPersonalDrinks: top_items,
                     PurchaseLogPersonal: personal_log,
@@ -894,6 +1003,7 @@ impl ServableRustix for ServableRustixImpl {
                     LastPurchases: last_log,
                     BillsCount: serde_json::Value::Null,
                     Bills: serde_json::Value::Null,
+                    BillDetails: serde_json::Value::Null,
                     OpenFFAFreebies: open_ffa,
                     TopPersonalDrinks: serde_json::Value::Null,
                     PurchaseLogPersonal: serde_json::Value::Null,
@@ -914,6 +1024,7 @@ impl ServableRustix for ServableRustixImpl {
                     LastPurchases: serde_json::Value::Null,
                     BillsCount: serde_json::Value::Null,
                     Bills: serde_json::Value::Null,
+                    BillDetails: serde_json::Value::Null,
                     OpenFFAFreebies: open_ffa,
                     TopPersonalDrinks: serde_json::Value::Null,
                     PurchaseLogPersonal: serde_json::Value::Null,
@@ -936,6 +1047,7 @@ impl ServableRustix for ServableRustixImpl {
                     LastPurchases: serde_json::Value::Null,
                     BillsCount: serde_json::Value::Null,
                     Bills: serde_json::Value::Null,
+                    BillDetails: serde_json::Value::Null,
                     OpenFFAFreebies: serde_json::Value::Null,
                     TopPersonalDrinks: serde_json::Value::Null,
                     PurchaseLogPersonal: serde_json::Value::Null,
@@ -958,6 +1070,7 @@ impl ServableRustix for ServableRustixImpl {
                     LastPurchases: serde_json::Value::Null,
                     BillsCount: serde_json::Value::Null,
                     Bills: serde_json::Value::Null,
+                    BillDetails: serde_json::Value::Null,
                     OpenFFAFreebies: serde_json::Value::Null,
                     TopPersonalDrinks: serde_json::Value::Null,
                     PurchaseLogPersonal: serde_json::Value::Null,
@@ -981,6 +1094,7 @@ impl ServableRustix for ServableRustixImpl {
                     LastPurchases: serde_json::Value::Null,
                     BillsCount: serde_json::Value::Null,
                     Bills: bills,
+                    BillDetails: serde_json::Value::Null,
                     OpenFFAFreebies: serde_json::Value::Null,
                     TopPersonalDrinks: serde_json::Value::Null,
                     PurchaseLogPersonal: serde_json::Value::Null,
@@ -1002,6 +1116,9 @@ impl ServableRustix for ServableRustixImpl {
                     pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 5 },
                 }))?;
                 let bills = Self::query_read(&*backend, Bills(app_state.bills))?;
+
+                let changed_bill_details = Self::query_read(&*backend, BillDetails(app_state.bill_detail_infos))?;
+
                 let incoming = Self::query_read(&*backend, IncomingFreebies(app_state.incoming_freebies))?;
                 let outgoing = Self::query_read(&*backend, OutgoingFreebies(app_state.outgoing_freebies))?;
                 Ok(RefreshedData {
@@ -1013,6 +1130,7 @@ impl ServableRustix for ServableRustixImpl {
                     LastPurchases: last_log,
                     BillsCount: serde_json::Value::Null,
                     Bills: bills,
+                    BillDetails: changed_bill_details,
                     OpenFFAFreebies: serde_json::Value::Null,
                     TopPersonalDrinks: serde_json::Value::Null,
                     PurchaseLogPersonal: Self::query_read(&*backend, PurchaseLogPersonal(app_state.personal_log))?,
@@ -1024,6 +1142,9 @@ impl ServableRustix for ServableRustixImpl {
                 let _b = &mut backend.apply(&a);
                 //refresh bills
                 let bills = Self::query_read(&*backend, Bills(app_state.bills))?;
+
+                let changed_bill_details = Self::query_read(&*backend, BillDetails(app_state.bill_detail_infos))?;
+
                 Ok(RefreshedData {
                     DetailInfoForUser: serde_json::Value::Null,
                     TopUsers: serde_json::Value::Null,
@@ -1033,6 +1154,7 @@ impl ServableRustix for ServableRustixImpl {
                     LastPurchases: serde_json::Value::Null,
                     BillsCount: serde_json::Value::Null,
                     Bills: bills,
+                    BillDetails: changed_bill_details,
                     OpenFFAFreebies: serde_json::Value::Null,
                     TopPersonalDrinks: serde_json::Value::Null,
                     PurchaseLogPersonal: serde_json::Value::Null,
@@ -1053,6 +1175,7 @@ impl ServableRustix for ServableRustixImpl {
                     LastPurchases: serde_json::Value::Null,
                     BillsCount: serde_json::Value::Null,
                     Bills: bills,
+                    BillDetails: serde_json::Value::Null,
                     OpenFFAFreebies: serde_json::Value::Null,
                     TopPersonalDrinks: serde_json::Value::Null,
                     PurchaseLogPersonal: serde_json::Value::Null,
@@ -1064,6 +1187,9 @@ impl ServableRustix for ServableRustixImpl {
                 let _b = &mut backend.apply(&a);
                 //refresh bills
                 let bills = Self::query_read(&*backend, Bills(app_state.bills))?;
+
+                let changed_bill_details = Self::query_read(&*backend, BillDetails(app_state.bill_detail_infos))?;
+
                 Ok(RefreshedData {
                     DetailInfoForUser: serde_json::Value::Null,
                     TopUsers: serde_json::Value::Null,
@@ -1073,6 +1199,7 @@ impl ServableRustix for ServableRustixImpl {
                     LastPurchases: serde_json::Value::Null,
                     BillsCount: serde_json::Value::Null,
                     Bills: bills,
+                    BillDetails: changed_bill_details,
                     OpenFFAFreebies: serde_json::Value::Null,
                     TopPersonalDrinks: serde_json::Value::Null,
                     PurchaseLogPersonal: serde_json::Value::Null,
@@ -1112,6 +1239,7 @@ impl ServableRustix for ServableRustixImpl {
                     LastPurchases: last_log,
                     BillsCount: serde_json::Value::Null,
                     Bills: serde_json::Value::Null,
+                    BillDetails: serde_json::Value::Null,
                     OpenFFAFreebies: serde_json::Value::Null,
                     TopPersonalDrinks: top_items,
                     PurchaseLogPersonal: personal_log,

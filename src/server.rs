@@ -1253,6 +1253,7 @@ pub struct RefreshedData {
     pub LastPurchases: serde_json::Value,
     pub BillsCount: serde_json::Value,
     pub Bills: serde_json::Value,
+    pub BillDetails: serde_json::Value,
     pub OpenFFAFreebies: serde_json::Value,
     pub TopPersonalDrinks: serde_json::Value,
     pub PurchaseLogPersonal: serde_json::Value,
@@ -1520,6 +1521,7 @@ mod tests {
                 },
                 pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 },
             },
+            bill_detail_infos: ParametersBillDetails { timestamp_from: None, timestamp_to: None },
             open_ffa_freebies: ParametersOpenFFAFreebies { pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
             top_personal_drinks: ParametersTopPersonalDrinks { user_id: 0, n: 0 },
             personal_log: ParametersPurchaseLogPersonal {
@@ -1601,6 +1603,7 @@ mod tests {
                 },
                 pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 },
             },
+            bill_detail_infos: ParametersBillDetails { timestamp_from: None, timestamp_to: None },
             open_ffa_freebies: ParametersOpenFFAFreebies { pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
             top_personal_drinks: ParametersTopPersonalDrinks { user_id: 0, n: 0 },
             personal_log: ParametersPurchaseLogPersonal {
