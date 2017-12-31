@@ -330,6 +330,7 @@ pub struct DetailedBill {
     pub bill_state: BillState,
     pub comment: String,
     pub users: UserGroup,
+    pub ready_for_finalization: bool,
 }
 
 
@@ -609,8 +610,13 @@ impl ServableRustix for ServableRustixImpl {
                     let specials_ids = backend.datastore.get_specials_to_bill(ts_from, ts_to);
                     let mut specials: Vec<Purchase> = vec![];
 
+                    let mut all_specials_are_set: bool = true;
+
                     for special_id in &specials_ids {
                         let tmp: rustix_bl::datastore::Purchase = backend.datastore.get_purchase(*special_id).unwrap_or_error()?;
+                        if tmp.get_special_set_price().is_none() {
+                            all_specials_are_set = false;
+                        }
                         specials.push(enrich_purchase(&tmp,&backend.datastore)?);
                     }
 
@@ -628,18 +634,21 @@ impl ServableRustix for ServableRustixImpl {
                         }
                     }
 
+                    let users_are_all_set = unset_users.len() == 0;
+
 
                     let xs = vec![
                         DetailedBill {
-                        timestamp_from: ts_from,
-                        timestamp_to: ts_to,
-                        specials: specials,
-                        set_users: set_users,
-                        unset_users: unset_users,
-                        bill_state: bill.bill_state,
-                        comment: bill.comment,
-                        users: bill.users,
-                    }];
+                            timestamp_from: ts_from,
+                            timestamp_to: ts_to,
+                            specials: specials,
+                            set_users: set_users,
+                            unset_users: unset_users,
+                            bill_state: bill.bill_state,
+                            comment: bill.comment,
+                            users: bill.users,
+                            ready_for_finalization: all_specials_are_set && users_are_all_set,
+                        }];
 
                     let res: PaginatedResult<DetailedBill> = PaginatedResult {
                         total_count: xs.len() as u32,
