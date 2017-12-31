@@ -79,6 +79,9 @@ fn typescript_definitions() -> Vec<String> {
         UserDetailInfo::type_script_ify(),
         DetailedBill::type_script_ify(),
         manager::Purchase::type_script_ify(),
+        CreateBill::type_script_ify(),
+        EditBill::type_script_ify(),
+        DeleteUnfinishedBill::type_script_ify(),
         rustix_bl::datastore::User::type_script_ify(),
         rustix_bl::datastore::UserGroup::type_script_ify(),
         rustix_bl::datastore::Item::type_script_ify(),
@@ -128,6 +131,7 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     router.get("/purchases/global", global_log, "globallog");
     router.get("/purchases/personal", personal_log, "personallog");
     router.get("/bills", get_bills, "getbills");
+    router.get("/bills/detail", get_detailed_bill, "getdetailedbill");
     router.get("/giveout/ffa", get_ffa_giveouts, "ffagiveouts");
     router.get("/giveout/incoming", get_incoming_giveouts, "incominggiveouts");
     router.get("/giveout/outgoing", get_outgoing_giveouts, "outgoinggiveouts");
@@ -248,7 +252,6 @@ pub mod responsehandlers {
 
     #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct CreateBill {
-        pub user_ids: rustix_bl::datastore::UserGroup,
         pub timestamp_from: i64,
         pub timestamp_to: i64,
         pub comment: String,
@@ -257,7 +260,6 @@ pub mod responsehandlers {
 
     #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct EditBill {
-        pub user_ids: rustix_bl::datastore::UserGroup,
         pub timestamp_from: i64,
         pub timestamp_to: i64,
         pub comment: String,
@@ -905,7 +907,7 @@ pub mod responsehandlers {
                 let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::CreateBill {
                     timestamp_from: parsed_body.timestamp_from,
                     timestamp_to: parsed_body.timestamp_to,
-                    user_ids: parsed_body.user_ids,
+                    user_ids: rustix_bl::datastore::UserGroup::AllUsers{},
                     comment: parsed_body.comment,
                 });
 
@@ -945,7 +947,7 @@ pub mod responsehandlers {
                     timestamp_from: parsed_body.timestamp_from,
                     timestamp_to: parsed_body.timestamp_to,
                     comment: parsed_body.comment,
-                    users: parsed_body.user_ids,
+                    users: rustix_bl::datastore::UserGroup::AllUsers{},
                     users_that_will_not_be_billed: parsed_body.exclude_user_ids,
                 });
 
@@ -1373,6 +1375,33 @@ pub mod responsehandlers {
                 match result {
                     Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
                     Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::Bill> {
+                        total_count: 0,
+                        from: 0,
+                        to: 0,
+                        results: Vec::new(),
+                    }).unwrap()))),
+                }
+            }
+            _ => return Ok(Response::with(iron::status::BadRequest)),
+        };
+    }
+
+    pub fn get_detailed_bill(req: &mut iron::request::Request) -> IronResult<Response> {
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let dat = datholder.read().unwrap();
+        let query_str = extract_query(req);
+
+        match query_str {
+            Some(json_query) => {
+                let param: ParametersBillDetails = serde_json::from_str(&json_query).unwrap();
+
+                let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::BillDetails(param));
+
+                println!("Bill details are queried with result = {:?}", result);
+
+                match result {
+                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
+                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<DetailedBill> {
                         total_count: 0,
                         from: 0,
                         to: 0,
