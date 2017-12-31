@@ -392,7 +392,21 @@ impl ServableRustix for ServableRustixImpl {
                 let highlight_users: HashSet<u32> = backend.datastore.highlighted_users.iter().map(|c| *c).collect();
                 let highlighted: u16 = highlight_users.len() as u16;
 
-                let xs = backend.datastore.top_user_ids(param.n - highlighted);
+
+                let xs_full = backend.datastore.top_user_ids(param.n);
+
+                let mut xs : Vec<u32> = Vec::new();
+
+                for uid in xs_full {
+                    if !highlight_users.contains(&uid) && (param.n - highlighted - (xs.len() as u16)) > 0 {
+                        xs.push(uid);
+                    }
+                }
+
+
+
+
+
 
                 for id in xs {
                     //if user.username.contains(param.count_pars.searchterm) {
