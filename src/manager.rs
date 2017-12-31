@@ -325,12 +325,19 @@ pub struct DetailedBill {
     pub timestamp_from: i64,
     pub timestamp_to: i64,
     pub specials: Vec<Purchase>,
-    pub set_users: Vec<rustix_bl::datastore::User>,
-    pub unset_users: Vec<rustix_bl::datastore::User>,
+    pub set_users: Vec<rustix_bl::datastore::User>, //TODO: remove in favor of more granular solution below
+    pub unset_users: Vec<rustix_bl::datastore::User>, //TODO: remove in favor of more granular solution below
     pub bill_state: BillState,
     pub comment: String,
     pub users: UserGroup,
     pub ready_for_finalization: bool,
+    //TODO: following infos (compute by scanning over all purchases in the given area and filtering by usergroup)
+    //all specials in given time and usergroup
+    //all special idx which are not yet set (info field, has to become empty)
+    //all users who are in this time and usergroup (base for UI selection of internal user exclusion)
+    //all user idxs who are excluded 'externally' (info field)
+    //all user idxs who aren't excluded externally and have no external_id set (info field, has to become empty)
+    //all user idxs who are excluded 'internally' (target for UI selection of internal user exclusion)
 }
 
 
