@@ -12,8 +12,6 @@ use std::sync::RwLock;
 use rand::{Rng, SeedableRng, StdRng};
 use rustix_bl::rustix_backend::*;
 use server::Backend;
-use std::ops::Try;
-use std::option::NoneError;
 use typescriptify::TypeScriptifyTrait;
 
 #[derive(Serialize, Deserialize, TypeScriptify)]
@@ -224,12 +222,6 @@ pub struct MyNoneError {}
 impl std::fmt::Display for MyNoneError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "MyNoneError()")
-    }
-}
-
-impl From<NoneError> for MyNoneError {
-    fn from(_: NoneError) -> Self {
-        return MyNoneError {};
     }
 }
 

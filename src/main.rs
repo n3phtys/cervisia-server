@@ -1,6 +1,3 @@
-#![feature(const_fn)]
-#![feature(try_trait)]
-#![feature(option_filter)]
 
 #[macro_use]
 extern crate lazy_static;

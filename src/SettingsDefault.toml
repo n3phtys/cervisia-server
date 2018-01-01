@@ -1,8 +1,12 @@
-use_send_mail = true
-email_server = ""
-email_username = ""
-email_password = ""
 top_items_per_user = 4
 host = "localhost"
 server_port = 8080
 web_path = "web/"
+use_persistence = false
+persistence_file_path = "./my-cervisia-lmdb.db"
+#use_sendmail_instead_of_smtp = false
+sender_email_address = "username@hostname.org"
+smtp_host_address = "smtp.hostname.org"
+smpt_credentials_loginname = "username"
+smpt_credentials_password = "s3cr3t_p@ssw0rd"
+smtp_port = 587

@@ -18,10 +18,6 @@ use server::Backend;
 
 #[derive(Debug, Deserialize)]
 pub struct ServerConfig {
-    pub use_send_mail: bool,
-    pub email_server: String,
-    pub email_username: String,
-    pub email_password: String,
     pub top_items_per_user: u16,
     //default = 4
     pub server_port: u16,
@@ -29,20 +25,32 @@ pub struct ServerConfig {
     //default = 8080
     pub web_path: String,
     //default = "web/""
+    pub use_persistence: bool,
+    pub persistence_file_path: String,
+    pub use_sendmail_instead_of_smtp: Option<bool>,
+    pub sender_email_address: String,
+    pub smtp_host_address: String, //also used for TLS handshake controlling
+    pub smpt_credentials_loginname: String,
+    pub smpt_credentials_password: String,
+    pub smtp_port: u16,
 }
 
 
 impl Default for ServerConfig {
     fn default() -> Self {
         return ServerConfig {
-            use_send_mail: false,
-            email_server: String::new(),
-            email_username: String::new(),
-            email_password: String::new(),
             top_items_per_user: 4,
             server_port: 8081,
             host: "localhost".to_string(),
             web_path: "web/".to_string(),
+            use_persistence: false,
+            persistence_file_path: "./my-cervisia-lmdb.db".to_string(),
+            use_sendmail_instead_of_smtp: None,
+            sender_email_address: "username@hostname.org".to_string(),
+            smtp_host_address: "smtp.hostname.org".to_string(),
+            smpt_credentials_loginname: "username".to_string(),
+            smpt_credentials_password: "s3cr3t_p@ssw0rd".to_string(),
+            smtp_port: 587,
         };
     }
 }

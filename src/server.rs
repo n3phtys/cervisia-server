@@ -43,7 +43,7 @@ use manager::*;
 
 use params::{Params, Value};
 
-pub type Backend = rustix_bl::rustix_backend::RustixBackend<rustix_bl::persistencer::TransientPersister>;
+pub type Backend = rustix_bl::rustix_backend::RustixBackend;
 
 #[derive(Copy, Clone)]
 pub struct SharedBackend;
@@ -363,7 +363,12 @@ pub mod responsehandlers {
 
                 let cur = current_time_millis();
 
-                if dat.datastore.get_purchase_timestamp(parsed_body.unique_id).filter(|t| cur < t + (30i64 * 1000i64)).is_some() {
+                if match dat.datastore.get_purchase_timestamp(parsed_body.unique_id) {
+                    Some(ref t) => {
+                        cur < t + (30i64 * 1000i64)
+                    },
+                    None => false,
+                }  {
                     return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
                         error_message: Some("A user may only undo a purchase before 30s have passed".to_string()),
                         is_success: false,
@@ -1653,14 +1658,18 @@ mod tests {
 
     fn get_server_config() -> ServerConfig {
         return ServerConfig {
-            use_send_mail: false,
-            email_server: String::new(),
-            email_username: String::new(),
-            email_password: String::new(),
             top_items_per_user: 4,
             host: "localhost".to_string(),
             server_port: get_and_increment_port(),
             web_path: "web/".to_string(),
+            use_persistence: false,
+            persistence_file_path: String::new(),
+            use_sendmail_instead_of_smtp: None,
+            sender_email_address: String::new(),
+            smtp_host_address: String::new(),
+            smpt_credentials_loginname: String::new(),
+            smpt_credentials_password: String::new(),
+            smtp_port: 0,
         };
     }
 
