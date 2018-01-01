@@ -341,6 +341,7 @@ pub struct DetailedBill {
     pub users_undefined_indices: Vec<usize>,
     //all user idxs who are excluded 'internally' (target for UI selection of internal user exclusion)
     pub users_excluded_internally_indices: Vec<usize>,
+    pub users_excludable_but_not_internally_indices: Vec<usize>,
 }
 
 
@@ -625,6 +626,8 @@ impl ServableRustix for ServableRustixImpl {
                     let mut users_excluded_externally_indices: Vec<usize> = vec![];
                     let mut users_undefined_indices: Vec<usize> = vec![];
                     let mut users_excluded_internally_indices: Vec<usize> = vec![];
+                    let mut users_excludable_but_not_internally_indices: Vec<usize> = vec![];
+
 
                     for purchase in backend.datastore.global_log_filtered(ts_from, ts_to) {
                         let uid: u32 = *purchase.get_user_id();
@@ -646,7 +649,10 @@ impl ServableRustix for ServableRustixImpl {
                             } else if usr.external_user_id.is_none() {
                                 // else add user to other list
                                     users_undefined_indices.push(user_idx);
-                            }
+                                    users_excludable_but_not_internally_indices.push(user_idx);
+                            } else if usr.external_user_id.is_some() {
+                                    users_excludable_but_not_internally_indices.push(user_idx);
+                                }
                             }
                             if !purchase.has_item_id() {
                                 //if special => move to special vec (if user matches)
@@ -676,6 +682,7 @@ impl ServableRustix for ServableRustixImpl {
                             users_excluded_externally_indices: users_excluded_externally_indices,
                             users_undefined_indices: users_undefined_indices,
                             users_excluded_internally_indices: users_excluded_internally_indices,
+                            users_excludable_but_not_internally_indices: users_excludable_but_not_internally_indices,
                         }];
 
                     let res: PaginatedResult<DetailedBill> = PaginatedResult {
@@ -1140,7 +1147,12 @@ impl ServableRustix for ServableRustixImpl {
                 })
             },
             a @ rustix_event_shop::BLEvents::FinalizeBill { .. } => {
+
+                println!("Trying to finalize bill");
                 let _b = &mut backend.apply(&a);
+
+                println!("_b = {}", _b);
+
                 //refresh bills
                 //refresh incoming
                 //refresh outgoing
