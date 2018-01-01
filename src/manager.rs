@@ -637,13 +637,13 @@ impl ServableRustix for ServableRustixImpl {
 
                                 let user_idx: usize = touched_users.len() - 1;
 
-                                if usr.is_billed {
+                                if !usr.is_billed {
                                     //if user isn't billed per field, add to externally excluded list
                                     users_excluded_externally_indices.push(user_idx);
                                 } else if bill.users_that_will_not_be_billed.contains(&uid) {
                                 //else if user is in internal exclusion list of bill, add to internally excluded list
                                     users_excluded_internally_indices.push(user_idx);
-                            } else {
+                            } else if usr.external_user_id.is_none() {
                                 // else add user to other list
                                     users_undefined_indices.push(user_idx);
                             }
