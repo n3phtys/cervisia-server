@@ -34,6 +34,7 @@ use params;
 use persistent;
 use persistent::State;
 use iron::typemap::Key;
+use rustix_bl::rustix_backend::WriteBackend;
 use manager::fill_backend_with_medium_test_data;
 use manager::fill_backend_with_large_test_data;
 use rustix_bl::datastore::DatastoreQueries;
@@ -172,10 +173,22 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
 
         let fill = backend.is_none();
 
-        let mut backend = backend.unwrap_or(rustix_bl::build_transient_backend());
-        if fill {
-            fill_backend_with_large_test_data(&mut backend); //TODO: replace for production
-        }
+
+        let mut backend = backend.unwrap_or( if config.use_persistence {
+            let mut b = rustix_bl::build_persistent_backend(std::path::Path::new(&config.persistence_file_path));
+            let c = b.reload().unwrap();
+            if c == 0 && fill {
+                fill_backend_with_large_test_data(&mut b); //TODO: replace for production
+            }
+            b
+        } else {
+            let mut b = rustix_bl::build_transient_backend();
+
+            if fill {
+                fill_backend_with_large_test_data(&mut b); //TODO: replace for production
+            }
+            b
+        });
 
         let state = State::<SharedBackend>::both(backend);
 
