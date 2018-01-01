@@ -324,20 +324,23 @@ fn enrich_ffa(incoming: &rustix_bl::datastore::Freeby, datastore: &rustix_bl::da
 pub struct DetailedBill {
     pub timestamp_from: i64,
     pub timestamp_to: i64,
-    pub specials: Vec<Purchase>,
-    pub set_users: Vec<rustix_bl::datastore::User>, //TODO: remove in favor of more granular solution below
-    pub unset_users: Vec<rustix_bl::datastore::User>, //TODO: remove in favor of more granular solution below
     pub bill_state: BillState,
     pub comment: String,
     pub users: UserGroup,
     pub ready_for_finalization: bool,
-    //TODO: following infos (compute by scanning over all purchases in the given area and filtering by usergroup)
+    //following infos (compute by scanning over all purchases in the given area and filtering by usergroup)
     //all specials in given time and usergroup
+    pub all_specials: Vec<Purchase>,
     //all special idx which are not yet set (info field, has to become empty)
+    pub unset_specials_indices: Vec<usize>,
     //all users who are in this time and usergroup (base for UI selection of internal user exclusion)
+    pub touched_users: Vec<rustix_bl::datastore::User>,
     //all user idxs who are excluded 'externally' (info field)
+    pub users_excluded_externally_indices: Vec<usize>,
     //all user idxs who aren't excluded externally and have no external_id set (info field, has to become empty)
+    pub users_undefined_indices: Vec<usize>,
     //all user idxs who are excluded 'internally' (target for UI selection of internal user exclusion)
+    pub users_excluded_internally_indices: Vec<usize>,
 }
 
 
@@ -614,47 +617,65 @@ impl ServableRustix for ServableRustixImpl {
                         backend.datastore.get_bill(ts_from, ts_to).unwrap_or_error()?.clone()
                     };
 
-                    let specials_ids = backend.datastore.get_specials_to_bill(ts_from, ts_to);
+
                     let mut specials: Vec<Purchase> = vec![];
+                    let mut unset_specials_indices: Vec<usize> = vec![];
+                    let mut touched_users_set: HashSet<u32> = HashSet::new();
+                    let mut touched_users: Vec<rustix_bl::datastore::User> = vec![];
+                    let mut users_excluded_externally_indices: Vec<usize> = vec![];
+                    let mut users_undefined_indices: Vec<usize> = vec![];
+                    let mut users_excluded_internally_indices: Vec<usize> = vec![];
 
-                    let mut all_specials_are_set: bool = true;
+                    for purchase in backend.datastore.global_log_filtered(ts_from, ts_to) {
+                        let uid: u32 = *purchase.get_user_id();
+                        if matches_usergroup(&Some(uid), &bill.users) {
+                            if !touched_users_set.contains(&uid) {
+                                //user matches criteria & isn't in list => add user to list
+                                touched_users_set.insert(uid);
+                                let usr = backend.datastore.users.get(&uid).unwrap_or_error()?;
+                                touched_users.push(usr.clone());
 
-                    for special_id in &specials_ids {
-                        let tmp: rustix_bl::datastore::Purchase = backend.datastore.get_purchase(*special_id).unwrap_or_error()?;
-                        if tmp.get_special_set_price().is_none() {
-                            all_specials_are_set = false;
+                                let user_idx: usize = touched_users.len() - 1;
+
+                                if usr.is_billed {
+                                    //if user isn't billed per field, add to externally excluded list
+                                    users_excluded_externally_indices.push(user_idx);
+                                } else if bill.users_that_will_not_be_billed.contains(&uid) {
+                                //else if user is in internal exclusion list of bill, add to internally excluded list
+                                    users_excluded_internally_indices.push(user_idx);
+                            } else {
+                                // else add user to other list
+                                    users_undefined_indices.push(user_idx);
+                            }
+                            }
+                            if !purchase.has_item_id() {
+                                //if special => move to special vec (if user matches)
+                                specials.push(enrich_purchase(purchase, &backend.datastore)?);
+
+                                if purchase.get_special_set_price().is_none() {
+                                    //if special && unset price => move to unset special vec (if user matches)
+                                    unset_specials_indices.push(specials.len() - 1);
+                                }
+                            }
+
                         }
-                        specials.push(enrich_purchase(&tmp,&backend.datastore)?);
                     }
-
-                    let all_users_ids = backend.datastore.get_users_to_bill(ts_from, ts_to);
-                    let unset_user_ids: HashSet<u32> = backend.datastore.get_un_set_users_to_bill(ts_from, ts_to).iter().map(|x|*x).collect();
-
-                    let mut unset_users: Vec<rustix_bl::datastore::User> = Vec::new();
-                    let mut set_users: Vec<rustix_bl::datastore::User> = Vec::new();
-
-                    for id in all_users_ids {
-                        if unset_user_ids.contains(&id) {
-                            unset_users.push(backend.datastore.users.get(&id).unwrap_or_error()?.clone());
-                        } else {
-                            set_users.push(backend.datastore.users.get(&id).unwrap_or_error()?.clone());
-                        }
-                    }
-
-                    let users_are_all_set = unset_users.len() == 0;
 
 
                     let xs = vec![
                         DetailedBill {
                             timestamp_from: ts_from,
                             timestamp_to: ts_to,
-                            specials: specials,
-                            set_users: set_users,
-                            unset_users: unset_users,
                             bill_state: bill.bill_state,
                             comment: bill.comment,
                             users: bill.users,
-                            ready_for_finalization: all_specials_are_set && users_are_all_set,
+                            ready_for_finalization: unset_specials_indices.is_empty() && users_undefined_indices.is_empty(),
+                            all_specials: specials,
+                            unset_specials_indices: unset_specials_indices,
+                            touched_users: touched_users,
+                            users_excluded_externally_indices: users_excluded_externally_indices,
+                            users_undefined_indices: users_undefined_indices,
+                            users_excluded_internally_indices: users_excluded_internally_indices,
                         }];
 
                     let res: PaginatedResult<DetailedBill> = PaginatedResult {

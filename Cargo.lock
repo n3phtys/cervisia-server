@@ -1067,7 +1067,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "rustix-bl"
 version = "0.4.1"
-source = "git+https://github.com/n3phtys/rustix-bl#2ae05b1f463ddd88b29d271e3b2040e520ce2414"
+source = "git+https://github.com/n3phtys/rustix-bl#d8215e3e21f5c3f75dbc081eb6b29112622719e0"
 dependencies = [
  "bincode 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "custom_derive 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
