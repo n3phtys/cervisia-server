@@ -10,6 +10,8 @@ extern crate log;
 extern crate simple_logger;
 extern crate mount;
 extern crate lettre;
+extern crate native_tls;
+extern crate uuid;
 extern crate notify;
 extern crate config;
 extern crate toml;
