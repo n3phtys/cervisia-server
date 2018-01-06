@@ -1,6 +1,6 @@
 
 use rustix_bl::datastore::Bill;
-
+use rustix_bl;
 
 pub struct SewobeConfiguration {
     pub static_csv_headerline: String,
@@ -55,6 +55,16 @@ impl BillFormatting for Bill {
 
     fn format_as_personalized_documentation(&self, user_id: u32) -> String {
         //TODO: define format
+        let mut lines: Vec<String> = Vec::new();
+
+        //TODO: add header
+        let userdata: &rustix_bl::datastore::BillUserInstance = self.finalized_data.user_consumption.get(&user_id).unwrap();
+
+
+        for (dayindex, daydata) in &userdata.per_day {
+
+        }
+
         unimplemented!()
     }
 
