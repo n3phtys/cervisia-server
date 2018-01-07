@@ -57,15 +57,18 @@ impl BillFormatting for Bill {
         //TODO: define format
         let mut lines: Vec<String> = Vec::new();
 
-        //TODO: add header
+        //add header later on, only data for now
         let userdata: &rustix_bl::datastore::BillUserInstance = self.finalized_data.user_consumption.get(&user_id).unwrap();
 
 
         for (dayindex, daydata) in &userdata.per_day {
-
+            //personally_consumed
+            //specials_consumed
+            //ffa_giveouts
+            //giveouts_to_user_id
         }
 
-        unimplemented!()
+        return lines.iter().fold("".to_string(), |acc, b| acc + &b);
     }
 
     fn list_of_user_ids(&self) -> Vec<u32> {

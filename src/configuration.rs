@@ -16,7 +16,7 @@ use std::thread;
 use server::Backend;
 
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct ServerConfig {
     pub top_items_per_user: u16,
     //default = 4

@@ -15,12 +15,14 @@ use configuration::*;
 use iron;
 use rustix_bl;
 use serde_json;
+use billformatter;
 use std;
 use rustix_bl::rustix_event_shop;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use manager::ParametersAll;
 use reqwest;
+use configuration;
 use std::io::Read;
 use iron::Handler;
 use serde;
@@ -40,6 +42,7 @@ use manager::fill_backend_with_large_test_data;
 use rustix_bl::datastore::DatastoreQueries;
 use typescriptify::TypeScriptifyTrait;
 use manager;
+use mail;
 use manager::*;
 
 use params::{Params, Value};
@@ -123,6 +126,11 @@ fn typescript_definition_string() -> String {
 pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Listening {
     let mut router = Router::new();
 
+    let biller_config = billformatter::SewobeConfiguration {
+        static_csv_headerline: String::new(),
+        template_for_csv_line: String::new(),
+    };
+
     //let endpoints = typescript_definition_string();
     router.get("/endpoints", |req: &mut iron::request::Request| Ok(Response::with((iron::status::Ok, typescript_definition_string()))), "endpoints");
 
@@ -155,7 +163,15 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     router.post("/bill/update", update_bill, "updatebill");
     router.post("/bill/delete", delete_bill, "deletebill");
     router.post("/bill/finalize", finalize_bill, "finalizebill");
-    router.post("/bill/export", export_bill, "exportbill");
+
+    {
+        let config = config.clone();
+        router.post("/bill/export", move |req: &mut iron::request::Request| {
+            let conf = config.clone();
+            export_bill(req, &conf, &biller_config )
+        }, "exportbill");
+
+    }
 
     router.post("/purchases/special/setprice", set_special_price, "setspecialprice");
 
@@ -210,6 +226,7 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
 pub mod responsehandlers {
     use super::*;
     use manager::*;
+    use billformatter::BillFormatting;
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct CreateItem {
@@ -1066,7 +1083,7 @@ pub mod responsehandlers {
         };
     }
 
-    pub fn export_bill(req: &mut iron::request::Request) -> IronResult<Response> {
+    pub fn export_bill(req: &mut iron::request::Request, conf: &configuration::ServerConfig, billconfig: &billformatter::SewobeConfiguration) -> IronResult<Response> {
         let posted_body = extract_body(req);
         println!("posted_body = {:?}", posted_body);
         let parsed_body: ExportBill = serde_json::from_str(&posted_body).unwrap();
@@ -1083,15 +1100,37 @@ pub mod responsehandlers {
                     timestamp_to: parsed_body.timestamp_to,
                 });
 
+
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                        error_message: None,
-                        is_success: true,
-                        content: Some(SuccessContent {
-                            timestamp_epoch_millis: current_time_millis(),
-                            refreshed_data: sux,
-                        }),
-                    }).unwrap()))),
+                    Ok(sux) => {
+
+                        let bill: rustix_bl::datastore::Bill = dat.datastore.get_bill(parsed_body.timestamp_from, parsed_body.timestamp_to).unwrap().clone();
+
+                        match parsed_body.limit_to_user {
+                            Some(user_id) => {
+                                let subject = "Your bill from Cervisia".to_string();
+                                let body = bill.format_as_personalized_documentation(user_id);
+                                mail::send_mail(vec![&parsed_body.email_address], &subject, &body, conf).unwrap();
+                            },
+                            None => {
+                                //TODO: construct csv to attach to mail
+                                //TODO: construct total list for all users
+                                //TODO: send both to receiver
+                                unimplemented!()
+                            },
+                        }
+
+
+
+                        return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                            error_message: None,
+                            is_success: true,
+                            content: Some(SuccessContent {
+                                timestamp_epoch_millis: current_time_millis(),
+                                refreshed_data: sux,
+                            }),
+                        }).unwrap())))
+                    },
                     Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
                         error_message: Some(err.description().to_string()),
                         is_success: false,
