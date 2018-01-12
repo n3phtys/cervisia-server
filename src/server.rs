@@ -1109,8 +1109,17 @@ pub mod responsehandlers {
                         match parsed_body.limit_to_user {
                             Some(user_id) => {
                                 let subject = "Your bill from Cervisia".to_string();
-                                let body = bill.format_as_personalized_documentation(user_id);
-                                mail::send_mail(vec![&parsed_body.email_address], &subject, &body, conf).unwrap();
+                                let body_cells = bill.format_as_personalized_documentation(user_id);
+                                //TODO: replace delimiter by making it configurable
+
+                                let mut lines: Vec<String> = Vec::new();
+
+                                for line_vec in body_cells {
+                                    lines.push(line_vec.join(";"));
+                                }
+                                let body: String = lines.join("\n");
+
+                                mail::send_mail(vec![&parsed_body.email_address], &subject, &body, &std::collections::HashMap::new(), conf).unwrap();
                             },
                             None => {
                                 //TODO: construct csv to attach to mail
@@ -1737,11 +1746,6 @@ mod tests {
         return (a, default_server_conf);
     }
 
-
-    #[test]
-    fn it_works() {
-        assert!(1 + 1 == 2);
-    }
 
     #[test]
     fn index_html_works() {

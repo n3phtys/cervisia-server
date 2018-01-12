@@ -12,7 +12,10 @@ use configuration::*;
 use std;
 
 
-pub fn send_mail(receiver_emails: Vec<&str>, subject: &str, body: &str, config: &ServerConfig) -> Result<lettre::smtp::response::Response, lettre::smtp::error::Error> {
+pub fn send_mail(receiver_emails: Vec<&str>, subject: &str, body: &str, attachments: &std::collections::HashMap<&str, &str>, config: &ServerConfig) -> Result<lettre::smtp::response::Response, lettre::smtp::error::Error> {
+
+    //TODO: implement attachments as multipart/mixed as in: https://github.com/lettre/lettre/issues/201
+
 
     //print out info in any case
     let receivers: String = receiver_emails.clone().into_iter().map(|email| email.to_string()).fold("".to_string(), |acc,b| acc + &b);
