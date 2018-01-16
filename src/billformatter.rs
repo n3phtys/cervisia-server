@@ -87,6 +87,58 @@ pub struct SewobeCSVLine {
     pub subaccount: String,
 }
 
+
+pub struct OversightCSVLine {
+    pub username: String,
+    pub user_id: String, //external_id
+    pub is_billed: bool,
+    pub day: DateTime<Utc>,
+    pub item_name: String,
+    pub item_count: String,
+    pub item_cost_cents: i32,
+    pub budget_cents_outgoing: i32, //negative for incoming
+    //pub giveout_message: String,
+    pub donor: String,
+    pub donor_id: String,
+    pub recipient: String,
+    pub recipient_id: String,
+    pub is_special: bool,
+    pub is_giveout: bool,
+    pub is_count: bool,
+    pub is_budget: bool,
+    pub is_incoming_donation: bool,
+    pub is_ffa: bool,
+}
+
+impl OversightCSVLine {
+
+    //TODO: define parameters for each named constructor, and call them during loops
+
+    pub fn ffa_giveout(username: String, user_id: String, is_billed: bool, item_name: String, item_count: u32, item_cost_cents: i32, day: DateTime<Utc>) -> Self {
+        unimplemented!()
+    }
+    pub fn budget_outgoing(username: String, user_id: String, is_billed: bool, budget_cents_outgoing: i32, day: DateTime<Utc>, donor: String, donor_id: String) -> Self {
+        unimplemented!()
+    }
+    pub fn budget_incoming(username: String, user_id: String, is_billed: bool, budget_cents_incoming: i32, day: DateTime<Utc>, recipient: String, recipient_id: String) -> Self {
+        unimplemented!()
+    }
+    pub fn count_giveout_outgoing(username: String, user_id: String, is_billed: bool, item_name: String, item_count: u32, item_cost_cents: i32, day: DateTime<Utc>, recipient: String, recipient_id: String) -> Self {
+        unimplemented!()
+    }
+    pub fn normal_purchase(username: String, user_id: String, is_billed: bool, item_name: String, item_count: u32, item_cost_cents: i32, day: DateTime<Utc>) -> Self {
+        unimplemented!()
+    }
+    pub fn special_purchase(username: String, user_id: String, is_billed: bool, item_name: String, item_cost_cents: i32, day: DateTime<Utc>) -> Self {
+        unimplemented!()
+    }
+
+
+    fn fmt(&self) -> Vec<String> {
+        unimplemented!()
+    }
+}
+
 impl SewobeCSVLine {
     //TODO: should get an export date, or not? or a finalization date? to calculate from there
     //TODO: remark should contain FROM and TO as readable date
@@ -239,21 +291,87 @@ impl BillFormatting for Bill {
     }
 
     fn format_as_personalized_documentation(&self, user_id: u32) -> Vec<Vec<String>> {
-        //TODO: define format
-        let mut lines: Vec<Vec<String>> = Vec::new();
+        let mut result: Vec<Vec<String>> = Vec::new();
+        let timestamp_to: i64 = self.timestamp_to;
+        let timestamp_from: i64 = self.timestamp_from;
 
-        //add header later on, only data for now
-        let userdata: &rustix_bl::datastore::BillUserInstance = self.finalized_data.user_consumption.get(&user_id).unwrap();
+        //for every user
+        let items = self.finalized_data.all_items.clone();
+        let users = self.finalized_data.all_users.clone();
 
 
-        for (dayindex, daydata) in &userdata.per_day {
-            //personally_consumed
-            //specials_consumed
-            //ffa_giveouts
-            //giveouts_to_user_id
+
+        //filter out unbilled user_ids
+        for user_id in &users.in_order_keys() {
+            let is_billed: bool = users.get(user_id).is_some() && users.get(user_id).unwrap().external_user_id.is_some() && users.get(user_id).unwrap().is_billed && !self.users_that_will_not_be_billed.contains(user_id);
+            let consumption = self.finalized_data.user_consumption.get(user_id).unwrap();
+
+            if users.get(user_id).is_some() && users.get(user_id).unwrap().external_user_id.is_some() {
+                let external_user_id: String = users.get(user_id).unwrap().clone().external_user_id.unwrap().to_string();
+                let mut position_index = 0u16;
+                for day in &consumption.per_day.in_order_keys() {
+                    let daycontent = consumption.per_day.get(day).unwrap();
+
+                    let day_timestamp: DateTime<Utc> = Utc.timestamp(timestamp_from, 0) + time::Duration::seconds((60i64 * 60i64 * 24i64) * (*day as i64));
+
+                    //for every item
+
+                    for item_id_purchase in &daycontent.personally_consumed.in_order_keys() {
+                        let count = daycontent.personally_consumed.get(item_id_purchase).unwrap();
+                        let item: rustix_bl::datastore::Item = items.get(item_id_purchase).unwrap().clone();
+                        result.push(OversightCSVLine::normal_purchase(users.get(user_id).unwrap().username.to_string(), external_user_id.to_string(), is_billed, item.name, *count, item.cost_cents as i32, day_timestamp).fmt());
+                        position_index += 1;
+                    }
+                    for special in &daycontent.specials_consumed {
+                        result.push(OversightCSVLine::special_purchase(users.get(user_id).unwrap().username.to_string(), external_user_id.to_string(), is_billed, special.name.to_string(), (special.price) as i32, day_timestamp).fmt());
+                        position_index += 1;
+                    }
+
+                    for item_id_ffa in &daycontent.ffa_giveouts.in_order_keys() {
+                        let count = daycontent.ffa_giveouts.get(item_id_ffa).unwrap();
+                        let item: rustix_bl::datastore::Item = items.get(item_id_ffa).unwrap().clone();
+                        result.push(OversightCSVLine::ffa_giveout(users.get(user_id).unwrap().username.to_string(), external_user_id.to_string(), is_billed, item.name, *count, item.cost_cents as i32, day_timestamp).fmt());
+                        position_index += 1;
+                    }
+
+                    for other_user_id in &daycontent.giveouts_to_user_id.in_order_keys() {
+                        let paid_for = daycontent.giveouts_to_user_id.get(other_user_id).unwrap();
+
+                        let other_user: rustix_bl::datastore::User = users.get(other_user_id).unwrap().clone();
+                        let other_user_name: String = other_user.username;
+                        let other_user_id : String = other_user.external_user_id.unwrap_or("".to_string());
+
+                        let budget_given: u64 = paid_for.budget_given;
+                        let budget_gotten: u64 = paid_for.budget_gotten;
+
+                        //if budget given or gotten > 0, also add to bill
+                        if budget_given > 0 {
+                            result.push(OversightCSVLine::budget_outgoing(users.get(user_id).unwrap().username.to_string(), external_user_id.to_string(), is_billed, budget_given as i32, day_timestamp, other_user_name.to_string(), other_user_id.to_string()).fmt());
+                            position_index += 1;
+                        }
+                        if budget_gotten > 0 {
+                            result.push(OversightCSVLine::budget_incoming(users.get(user_id).unwrap().username.to_string(), external_user_id.to_string(), is_billed, budget_gotten as i32, day_timestamp, other_user_name.to_string(), other_user_id.to_string()).fmt());
+                            position_index += 1;
+                        }
+
+
+
+                        for item_id in &paid_for.count_giveouts_used.in_order_keys() {
+                            let count = paid_for.count_giveouts_used.get(item_id).unwrap();
+                            let item: rustix_bl::datastore::Item = items.get(&item_id).unwrap().clone();
+                            result.push(OversightCSVLine::count_giveout_outgoing(users.get(user_id).unwrap().username.to_string(), external_user_id.to_string(), is_billed, item.name, *count, item.cost_cents as i32, day_timestamp,  other_user_name.to_string(), other_user_id.to_string()).fmt());
+                            position_index += 1;}
+                    }
+
+
+                    //list received (per donor), paid, donated (per recipient, or ffa)
+                    //list amount of user budget ingoing and outgoing (per donor/recipient, but independent of item, as unique item position)
+                }
+            }
         }
 
-        return lines;
+
+        return result;
     }
 
     fn list_of_user_ids(&self) -> Vec<u32> {
@@ -475,6 +593,158 @@ mod tests {
 
     #[test]
     fn simple_general_csv_works() {
-        assert!(1 + 1 == 2);
+
+        let bill: Bill = Bill {
+
+            timestamp_from: 1500000000,
+            timestamp_to: 2000000000,
+            comment: "No comment here".to_string(),
+            users: UserGroup::AllUsers,
+            bill_state: BillState::ExportedAtLeastOnce,
+            users_that_will_not_be_billed: {
+                let mut s = HashSet::new();
+                s.insert(1);
+                s
+            },
+            finalized_data: ExportableBillData {
+                all_users: {
+                    let mut m = HashMap::new();
+                    m.insert(0, rustix_bl::datastore::User {
+                        username: "alice".to_string(),
+                        external_user_id: Some("ExternalUserId0".to_string()),
+                        user_id: 0,
+                        is_billed: true,
+                        highlight_in_ui: false,
+                        deleted: false,
+                    });
+                    m.insert(1, rustix_bl::datastore::User {
+                        username: "bob".to_string(),
+                        external_user_id: None,
+                        user_id: 1,
+                        is_billed: true,
+                        highlight_in_ui: false,
+                        deleted: false,
+                    });
+                    m.insert(2, rustix_bl::datastore::User {
+                        username: "charlie".to_string(),
+                        external_user_id: None,
+                        user_id: 2,
+                        is_billed: false,
+                        highlight_in_ui: false,
+                        deleted: false,
+                    });
+                    m
+                },
+                all_items: {
+                    let mut m = HashMap::new();
+                    m.insert(0, rustix_bl::datastore::Item {
+                        name: "beer".to_string(),
+                        item_id: 0,
+                        category: None,
+                        cost_cents: 95,
+                        deleted: false,
+                    });
+                    m.insert(1, rustix_bl::datastore::Item {
+                        name: "soda".to_string(),
+                        item_id: 1,
+                        category: None,
+                        cost_cents: 85,
+                        deleted: false,
+                    });
+                    m
+                },
+                user_consumption: {
+                    let mut consumption_map = HashMap::new();
+
+                    //user 0 has consumed both items on two separate days and been given count and budget by 0 and 1
+                    //user 1 has consumed both items and given count to 0
+                    //user 2 has consumed items 1 and given budget to 0
+
+
+                    consumption_map.insert(0, rustix_bl::datastore::BillUserInstance {user_id:0, per_day: {
+                        let mut day_hashmap = HashMap::new();
+                        let day_index_1 = 0;
+                        let day_index_2 = 3;
+                        day_hashmap.insert(day_index_1, rustix_bl::datastore::BillUserDayInstance {
+                            personally_consumed: {
+                                let mut hm = HashMap::new();
+
+                                hm.insert(0, 3);
+                                hm.insert(1,19);
+
+                                hm
+                            },
+                            specials_consumed: Vec::new(),
+                            ffa_giveouts: HashMap::new(),
+                            giveouts_to_user_id: HashMap::new(),
+                        });
+                        day_hashmap.insert(day_index_2, rustix_bl::datastore::BillUserDayInstance {
+                            personally_consumed: {
+                                let mut hm = HashMap::new();
+                                hm.insert(0, 99);
+                                hm
+                            },
+                            specials_consumed: vec![rustix_bl::datastore::PricedSpecial {
+                                name: "Banana".to_string(),
+                                purchase_id: 0,
+                                price: 12345,
+                            }],
+                            ffa_giveouts: {
+                                let mut hm = HashMap::new();
+                                hm.insert(0, 9);
+                                hm.insert(1, 1234);
+                                hm
+                            },
+                            giveouts_to_user_id: {
+                                let mut hm = HashMap::new();
+
+                                hm.insert(1, rustix_bl::datastore::PaidFor{
+                                    recipient_id: 1,
+                                    count_giveouts_used: HashMap::new(),
+                                    budget_given: 0,
+                                    budget_gotten: 25,
+                                });
+                                hm.insert(2, rustix_bl::datastore::PaidFor{
+                                    recipient_id: 2,
+                                    count_giveouts_used: HashMap::new(),
+                                    budget_given: 45,
+                                    budget_gotten: 140,
+                                });
+
+                                hm
+                            },
+                        });
+                        day_hashmap
+                    }});
+                    consumption_map.insert(1, rustix_bl::datastore::BillUserInstance {
+                        user_id: 1,
+                        per_day: HashMap::new(),
+                    });
+                    consumption_map.insert(2, rustix_bl::datastore::BillUserInstance {
+                        user_id: 2,
+                        per_day: HashMap::new(),
+                    });
+
+                    consumption_map
+                },
+            },
+        };
+        let conf: SewobeConfiguration = SewobeConfiguration {
+            static_csv_headerline: String::new(),
+            template_for_csv_line: String::new(),
+        };
+
+        let should_header: Vec<String> = vec![];
+        let should_lines: Vec<Vec<String>> = vec![];
+
+        let is_header = bill.documentation_header(&conf);
+
+        assert_eq!(should_header, is_header);
+
+
+        let is_lines = bill.format_as_documentation();
+
+
+        assert_eq!(should_lines, is_lines);
     }
 }
