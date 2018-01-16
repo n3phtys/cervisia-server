@@ -1,7 +1,9 @@
 use rustix_bl::datastore::Bill;
 use rustix_bl;
 use chrono::prelude::*;
+use time;
 use chrono::offset::LocalResult;
+use std;
 
 pub struct SewobeConfiguration {
     pub static_csv_headerline: String,
@@ -50,6 +52,13 @@ pub trait BillFormatting {
     }
 }
 
+fn cents_to_currency_string(cents: i32) -> String {
+    let before = cents / 100;
+    let after2 = cents % 10;
+    let after1 = (cents % 100 - after2) / 10;
+    let after1 = if after1 >= 0 {after1} else {after1 * -1i32};
+    return format!("{},{}{}", before, after1, after2);
+}
 
 pub struct SewobeCSVLine {
     pub external_user_id: String,
@@ -61,7 +70,7 @@ pub struct SewobeCSVLine {
     pub position_name: String,
     pub position_description: String,
     pub position_count: u32,
-    pub price_per_unit_cents: u32,
+    pub price_per_unit_cents: i32,
     pub use_inbox: bool,
     pub receive_mail: bool,
     pub payment_target_days: u32,
@@ -81,15 +90,71 @@ pub struct SewobeCSVLine {
 impl SewobeCSVLine {
     //TODO: should get an export date, or not? or a finalization date? to calculate from there
     //TODO: remark should contain FROM and TO as readable date
-    fn new(timestamp_from: i64, timestamp_to: i64, external_user_id: &str, position_name: &str, position_description: &str, position_index: u16, position_count: u32, position_price_per_unit: u32) -> Self {
+    fn new(timestamp_from: i64, timestamp_to: i64, external_user_id: &str, position_name: &str, position_description: &str, position_index: u16, position_count: u32, position_price_per_unit: i32) -> Self {
         let utc_timestamp_from = Utc.timestamp(timestamp_from, 0);
         let utc_timestamp_to = Utc.timestamp(timestamp_to, 0);
 
-        unimplemented!()
+        let billing_creation_date = utc_timestamp_to.clone(); //TODO: replace by first export date
+
+        let bill_id: String = billing_creation_date.format("%y%m%d%S").to_string() + external_user_id;
+
+
+
+        return SewobeCSVLine {
+            external_user_id: external_user_id.to_string(),
+            use_r_vs_g: true,
+            bill_external_id: bill_id,
+            bill_name: "Kantinenabrechnung ".to_string() + &billing_creation_date.format("%m/%y").to_string(),
+            bill_date: billing_creation_date,
+            position_index: position_index,
+            position_name: position_name.to_string(),
+            position_description: position_description.to_string(),
+            position_count: position_count,
+            price_per_unit_cents: position_price_per_unit,
+            use_inbox: true,
+            receive_mail: true,
+            payment_target_days: 30,
+            sepa_interval: 0,
+            bill_date_sent: billing_creation_date,
+            bill_date_late: billing_creation_date + time::Duration::seconds(14 * 24 * 60 * 60),
+            position_ends_date: billing_creation_date + time::Duration::seconds(100 * 365  * 24 * 60 * 60),
+            tax_rate: "0".to_string(),
+            description: "KA ".to_string() + &utc_timestamp_from.format("%d.%m.%y").to_string() + "-" + &utc_timestamp_to.format("%d.%m.%y").to_string(),
+            is_not_donation: true,
+            donation_remark: "".to_string(),
+            billkeeping_account: "1112".to_string(),
+            tax_key: "1".to_string(),
+            subaccount: "8293".to_string(),
+        };
     }
 
     fn fmt(&self) -> Vec<String> {
-        unimplemented!()
+        vec![
+            self.external_user_id.to_string(), if self.use_r_vs_g { "2".to_string() } else { "1".to_string() }, self.bill_external_id.to_string(), self.bill_date.format("%d.%m.%Y").to_string(), self.position_index.to_string(), self.position_name.to_string(), self.position_description.to_string(), self.position_count.to_string(), cents_to_currency_string(self.price_per_unit_cents), if self.use_inbox {"2".to_string()} else {"1".to_string()}, if self.receive_mail {"2".to_string()} else {"1".to_string()}, self.payment_target_days.to_string(), self.sepa_interval.to_string(), self.bill_date_sent.format("%d.%m.%Y").to_string(), self.bill_date_late.format("%d.%m.%Y").to_string(), self.position_ends_date.format("%d.%m.%Y").to_string(), self.tax_rate.to_string(), self.description.to_string(), if self.is_not_donation {"0".to_string()} else {"1".to_string()}, self.donation_remark.to_string(), self.billkeeping_account.to_string(), self.tax_rate.to_string(), self.subaccount.to_string()
+        ]
+    }
+}
+
+pub trait InOrderableu32 {
+    fn in_order_keys(&self) -> Vec<u32>;
+}
+pub trait InOrderableusize {
+    fn in_order_keys(&self) -> Vec<usize>;
+}
+
+impl<T> InOrderableu32 for std::collections::HashMap<u32, T> {
+    fn in_order_keys(&self) -> Vec<u32> {
+        let mut v: Vec<u32> = self.keys().map(|x:&u32| *x).collect();
+        v.sort();
+        return v;
+    }
+}
+
+impl<T> InOrderableusize for std::collections::HashMap<usize, T> {
+    fn in_order_keys(&self) -> Vec<usize> {
+        let mut v: Vec<usize> = self.keys().map(|x:&usize| *x).collect();
+        v.sort();
+        return v;
     }
 }
 
@@ -104,31 +169,39 @@ impl BillFormatting for Bill {
         let items = self.finalized_data.all_items.clone();
         let users = self.finalized_data.all_users.clone();
 
+
+
         //filter out unbilled user_ids
-        for (user_id, consumption) in &self.finalized_data.user_consumption {
+        for user_id in &users.in_order_keys() {
+            let consumption = self.finalized_data.user_consumption.get(user_id).unwrap();
+
             if users.get(user_id).is_some() && users.get(user_id).unwrap().external_user_id.is_some() && users.get(user_id).unwrap().is_billed && !self.users_that_will_not_be_billed.contains(user_id) {
-                let external_user_id: String = users.get(user_id).unwrap().username.to_string();
+                let external_user_id: String = users.get(user_id).unwrap().clone().external_user_id.unwrap().to_string();
                 let mut position_index = 0u16;
-                for (day, daycontent) in &consumption.per_day {
+                for day in &consumption.per_day.in_order_keys() {
+                    let daycontent = consumption.per_day.get(day).unwrap();
                     //for every item
 
-                    for (item_id_purchase, count) in &daycontent.personally_consumed {
+                    for item_id_purchase in &daycontent.personally_consumed.in_order_keys() {
+                        let count = daycontent.personally_consumed.get(item_id_purchase).unwrap();
                         let item: rustix_bl::datastore::Item = items.get(item_id_purchase).unwrap().clone();
-                        result.push(SewobeCSVLine::new(timestamp_from, timestamp_to, &external_user_id, &item.name, "Selbst gekauft", position_index, *count, item.cost_cents).fmt());
+                        result.push(SewobeCSVLine::new(timestamp_from, timestamp_to, &external_user_id, &item.name, "Selbst gekauft", position_index, *count, item.cost_cents as i32).fmt());
                         position_index += 1;
                     }
                         for special in &daycontent.specials_consumed {
-                            result.push(SewobeCSVLine::new(timestamp_from, timestamp_to, &external_user_id,  &special.name, "Speziell abgestrichen", position_index, 1, special.price).fmt());
+                            result.push(SewobeCSVLine::new(timestamp_from, timestamp_to, &external_user_id,  &special.name, "Speziell abgestrichen", position_index, 1, special.price as i32).fmt());
                             position_index += 1;
                         }
 
-                        for (item_id_ffa, count) in &daycontent.ffa_giveouts {
+                        for item_id_ffa in &daycontent.ffa_giveouts.in_order_keys() {
+                            let count = daycontent.ffa_giveouts.get(item_id_ffa).unwrap();
                             let item: rustix_bl::datastore::Item = items.get(item_id_ffa).unwrap().clone();
-                            result.push(SewobeCSVLine::new(timestamp_from, timestamp_to, &external_user_id, &item.name, "An alle ausgegeben", position_index, *count, item.cost_cents).fmt());
+                            result.push(SewobeCSVLine::new(timestamp_from, timestamp_to, &external_user_id, &item.name, "An alle ausgegeben", position_index, *count, item.cost_cents as i32).fmt());
                             position_index += 1;
                         }
 
-                        for (other_user_id, paid_for) in &daycontent.giveouts_to_user_id {
+                        for other_user_id in &daycontent.giveouts_to_user_id.in_order_keys() {
+                            let paid_for = daycontent.giveouts_to_user_id.get(other_user_id).unwrap();
 
                             let other_user: rustix_bl::datastore::User = users.get(other_user_id).unwrap().clone();
 
@@ -137,19 +210,20 @@ impl BillFormatting for Bill {
 
                             //if budget given or gotten > 0, also add to bill
                             if budget_given > 0 {
-                                result.push(SewobeCSVLine::new(timestamp_from, timestamp_to, &external_user_id, &format!("Guthaben verschenkt an {}", other_user.username), &format!("Guthaben verbraucht: {} Cents (intern verrechnet)", budget_given), position_index, 1, 0).fmt());
+                                result.push(SewobeCSVLine::new(timestamp_from, timestamp_to, &external_user_id, &format!("Guthaben verschenkt an {}", other_user.username), &format!("Guthaben verbraucht: {} Cents (intern verrechnet)", budget_given), position_index, 1, budget_given as i32).fmt());
                                 position_index += 1;
                             }
                             if budget_gotten > 0 {
-                                result.push(SewobeCSVLine::new(timestamp_from, timestamp_to, &external_user_id, &format!("Guthaben erhalten von {}", other_user.username), &format!("Guthaben verbraucht: {} Cents (intern verrechnet)", budget_gotten), position_index, 1, 0).fmt());
+                                result.push(SewobeCSVLine::new(timestamp_from, timestamp_to, &external_user_id, &format!("Guthaben erhalten von {}", other_user.username), &format!("Guthaben verbraucht: {} Cents (intern verrechnet)", budget_gotten), position_index, 1, -1i32 * (budget_gotten as i32)).fmt());
                                 position_index += 1;
                             }
 
 
 
-                            for (item_id, count) in &paid_for.count_giveouts_used {
+                            for item_id in &paid_for.count_giveouts_used.in_order_keys() {
+                                let count = paid_for.count_giveouts_used.get(item_id).unwrap();
                                 let item: rustix_bl::datastore::Item = items.get(&item_id).unwrap().clone();
-                                result.push(SewobeCSVLine::new(timestamp_from, timestamp_to, &external_user_id, &item.name, &format!("Ausgegeben an und verbraucht von {}", other_user.username), position_index, *count, item.cost_cents).fmt());
+                                result.push(SewobeCSVLine::new(timestamp_from, timestamp_to, &external_user_id, &item.name, &format!("Ausgegeben an und verbraucht von {}", other_user.username), position_index, *count, item.cost_cents as i32).fmt());
                                 position_index += 1;}
                         }
 
@@ -202,27 +276,158 @@ impl BillFormatting for Bill {
 
 #[cfg(test)]
 mod tests {
+    use rustix_bl;
     use billformatter::BillFormatting;
     use billformatter::SewobeConfiguration;
-    use rustix_bl::datastore::Bill;
+    use rustix_bl::datastore::*;
     use std::collections::*;
     use rustix_bl::datastore::*;
+
+
+    #[test]
+    fn stringsort_works() {
+        let mut a = vec!["b", "ab", "a"];
+        a.sort();
+        let mut b = vec!["b", "a", "ab"];
+        b.sort();
+        assert_eq!(a, b);
+    }
 
     #[test]
     fn simple_sewobe_csv_works() {
         let bill: Bill = Bill {
-            //TODO: input some basic data to test all functionality
 
-            timestamp_from: 0,
-            timestamp_to: 0,
-            comment: String::new(),
+            timestamp_from: 1500000000,
+            timestamp_to: 2000000000,
+            comment: "No comment here".to_string(),
             users: UserGroup::AllUsers,
             bill_state: BillState::ExportedAtLeastOnce,
-            users_that_will_not_be_billed: HashSet::new(),
+            users_that_will_not_be_billed: {
+                let mut s = HashSet::new();
+                s.insert(1);
+                s
+            },
             finalized_data: ExportableBillData {
-                all_users: HashMap::new(),
-                all_items: HashMap::new(),
-                user_consumption: HashMap::new(),
+                all_users: {
+                    let mut m = HashMap::new();
+                    m.insert(0, rustix_bl::datastore::User {
+                        username: "alice".to_string(),
+                        external_user_id: Some("ExternalUserId0".to_string()),
+                        user_id: 0,
+                        is_billed: true,
+                        highlight_in_ui: false,
+                        deleted: false,
+                    });
+                    m.insert(1, rustix_bl::datastore::User {
+                        username: "bob".to_string(),
+                        external_user_id: None,
+                        user_id: 1,
+                        is_billed: true,
+                        highlight_in_ui: false,
+                        deleted: false,
+                    });
+                    m.insert(2, rustix_bl::datastore::User {
+                        username: "charlie".to_string(),
+                        external_user_id: None,
+                        user_id: 2,
+                        is_billed: false,
+                        highlight_in_ui: false,
+                        deleted: false,
+                    });
+                    m
+                },
+                all_items: {
+                    let mut m = HashMap::new();
+                    m.insert(0, rustix_bl::datastore::Item {
+                        name: "beer".to_string(),
+                        item_id: 0,
+                        category: None,
+                        cost_cents: 95,
+                        deleted: false,
+                    });
+                    m.insert(1, rustix_bl::datastore::Item {
+                        name: "soda".to_string(),
+                        item_id: 1,
+                        category: None,
+                        cost_cents: 85,
+                        deleted: false,
+                    });
+                    m
+                },
+                user_consumption: {
+                    let mut consumption_map = HashMap::new();
+
+                    //user 0 has consumed both items on two separate days and been given count and budget by 0 and 1
+                    //user 1 has consumed both items and given count to 0
+                    //user 2 has consumed items 1 and given budget to 0
+
+
+                    consumption_map.insert(0, rustix_bl::datastore::BillUserInstance {user_id:0, per_day: {
+                        let mut day_hashmap = HashMap::new();
+                        let day_index_1 = 0;
+                        let day_index_2 = 3;
+                        day_hashmap.insert(day_index_1, rustix_bl::datastore::BillUserDayInstance {
+                            personally_consumed: {
+                                let mut hm = HashMap::new();
+
+                                hm.insert(0, 3);
+                                hm.insert(1,19);
+
+                                hm
+                            },
+                            specials_consumed: Vec::new(),
+                            ffa_giveouts: HashMap::new(),
+                            giveouts_to_user_id: HashMap::new(),
+                        });
+                        day_hashmap.insert(day_index_2, rustix_bl::datastore::BillUserDayInstance {
+                            personally_consumed: {
+                                let mut hm = HashMap::new();
+                                hm.insert(0, 99);
+                                hm
+                            },
+                            specials_consumed: vec![rustix_bl::datastore::PricedSpecial {
+                            name: "Banana".to_string(),
+                            purchase_id: 0,
+                            price: 12345,
+                            }],
+                            ffa_giveouts: {
+                                let mut hm = HashMap::new();
+                                hm.insert(0, 9);
+                                hm.insert(1, 1234);
+                                hm
+                            },
+                            giveouts_to_user_id: {
+                                let mut hm = HashMap::new();
+
+                                hm.insert(1, rustix_bl::datastore::PaidFor{
+                                    recipient_id: 1,
+                                    count_giveouts_used: HashMap::new(),
+                                    budget_given: 0,
+                                    budget_gotten: 25,
+                                });
+                                hm.insert(2, rustix_bl::datastore::PaidFor{
+                                    recipient_id: 2,
+                                    count_giveouts_used: HashMap::new(),
+                                    budget_given: 45,
+                                    budget_gotten: 140,
+                                });
+
+                                hm
+                            },
+                        });
+                        day_hashmap
+                    }});
+                    consumption_map.insert(1, rustix_bl::datastore::BillUserInstance {
+                        user_id: 1,
+                        per_day: HashMap::new(),
+                    });
+                    consumption_map.insert(2, rustix_bl::datastore::BillUserInstance {
+                        user_id: 2,
+                        per_day: HashMap::new(),
+                    });
+
+                    consumption_map
+                },
             },
         };
         let conf: SewobeConfiguration = SewobeConfiguration {
@@ -230,35 +435,42 @@ mod tests {
             template_for_csv_line: String::new(),
         };
 
-        let should = vec![
+        let should: Vec<Vec<String>> = vec![
             //header
             vec![
                 "Mitgliedsnummer", "R vs G", "Rechnungsnr.", "Rechnungsname", "Rechnungsdatum", "Positionsnr.", "Positionsname", "Positionsbeschreibung", "Anzahl", "Preis pro Einheit", "2 == Lastschrift und 1 == Ueberweisung", "Empfang per Mail", "Zahlungsziel in Tagen", "SEPA Intervall (0 fuer einmalig)", "Datum Rechnungsstellung", "Datum Faelligkeit", "Datum Positionsende", "Mehrwertsteuersatz", "Beschreibung", " Spendenfähig", "Spende", "Buchhaltungskonto", "Steuerschluessel", "Unterkonto Kantine"
             ].iter().map(|s| s.to_string()).collect(),
-            //first line
-            vec!["11293".to_string(), "2".to_string(), "1706241129301".to_string(), "Kantinenrechnung 06/2017".to_string(), "24.06.2017".to_string(),
-                 "1".to_string(), "Edel".to_string(), "Edel".to_string(), "4".to_string(), "0,95".to_string(), "2".to_string(), "2".to_string(), "30".to_string(), "0".to_string(), "24.06.2017".to_string(),
-                 "01.07.2017".to_string(), "31.05.2117".to_string(), "0".to_string(), "auto-gen by avbier".to_string(), "0".to_string(), "".to_string(), "1112".to_string(), "1".to_string(), "8293".to_string()],
-            //second line
-            vec!["11293".to_string(), "2".to_string(), "1706241129301".to_string(), "Kantinenrechnung 06/2017".to_string(), "24.06.2017".to_string(),
-                 "1".to_string(), "Pils".to_string(), "Pils".to_string(), "4".to_string(), "0,95".to_string(), "2".to_string(), "2".to_string(), "30".to_string(), "0".to_string(), "24.06.2017".to_string(),
-                 "01.07.2017".to_string(), "31.05.2117".to_string(), "0".to_string(), "auto-gen by avbier".to_string(), "0".to_string(), "".to_string(), "1112".to_string(), "1".to_string(), "8293".to_string()],
         ];
+
+
+        let should_lines = vec!["ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;0;beer;Selbst gekauft;3;0,95;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;1;soda;Selbst gekauft;19;0,85;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;2;beer;Selbst gekauft;99;0,95;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;3;Banana;Speziell abgestrichen;1;123,45;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;4;beer;An alle ausgegeben;9;0,95;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;5;soda;An alle ausgegeben;1234;0,85;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;6;Guthaben erhalten von bob;Guthaben verbraucht: 25 Cents (intern verrechnet);1;0,2-5;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;7;Guthaben verschenkt an charlie;Guthaben verbraucht: 45 Cents (intern verrechnet);1;0,45;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;8;Guthaben erhalten von charlie;Guthaben verbraucht: 140 Cents (intern verrechnet);1;-1,40;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293"];
+
 
         let is_content = bill.format_as_sewobe_csv(&conf);
         let is_header = bill.sewobe_header(&conf);
 
-        assert_eq!(should.len() - 1, is_content.len());
+        let mut is_lines: Vec<String> = is_content.iter().map(|vec| vec.join(";")).collect();
+
+
+        let is_all: String = is_lines.join("\n");
+
+        println!("Sewobe CSV Test Output:\n{}", is_all);
+
+        println!("Lines should:\n{:?}\nvs lines is:\n{:?}", should_lines, is_lines);
+
+
+        assert!(is_lines[0].contains("beer"));
+        assert!(should_lines[0].contains("beer"));
+
+        assert_eq!(is_lines.len(), 9);
+        assert_eq!(should_lines.len(), 9);
+        assert_eq!(should_lines, is_lines);
+
 
         for j in 0..should[0].len() - 1 {
             assert_eq!(should[0][j], is_header[j]);
         }
 
-        for i in 1..should.len() - 1 {
-            for j in 0..should[i].len() - 1 {
-                assert_eq!(should[i][j], is_content[i - 1][j])
-            }
-        }
     }
 
     #[test]
