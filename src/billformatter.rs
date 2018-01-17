@@ -94,7 +94,7 @@ pub struct OversightCSVLine {
     pub is_billed: bool,
     pub day: DateTime<Utc>,
     pub item_name: String,
-    pub item_count: String,
+    pub item_count: u32,
     pub item_cost_cents: i32,
     pub budget_cents_outgoing: i32, //negative for incoming
     //pub giveout_message: String,
@@ -112,30 +112,150 @@ pub struct OversightCSVLine {
 
 impl OversightCSVLine {
 
-    //TODO: define parameters for each named constructor, and call them during loops
 
     pub fn ffa_giveout(username: String, user_id: String, is_billed: bool, item_name: String, item_count: u32, item_cost_cents: i32, day: DateTime<Utc>) -> Self {
-        unimplemented!()
+        return OversightCSVLine {
+            username: username,
+            user_id: user_id,
+            is_billed: is_billed,
+            day: day,
+            item_name: item_name,
+            item_count: item_count,
+            item_cost_cents: item_cost_cents,
+            budget_cents_outgoing: 0,
+            donor: String::new(),
+            donor_id: String::new(),
+            recipient: String::new(),
+            recipient_id: String::new(),
+            is_special: false,
+            is_giveout: true,
+            is_count: false,
+            is_budget: false,
+            is_incoming_donation: false,
+            is_ffa: true,
+        };
     }
-    pub fn budget_outgoing(username: String, user_id: String, is_billed: bool, budget_cents_outgoing: i32, day: DateTime<Utc>, donor: String, donor_id: String) -> Self {
-        unimplemented!()
+    pub fn budget_outgoing(username: String, user_id: String, is_billed: bool, budget_cents_outgoing: i32, day: DateTime<Utc>, recipient: String, recipient_id : String) -> Self {
+        return OversightCSVLine {
+            username: username,
+            user_id: user_id,
+            is_billed: is_billed,
+            day: day,
+            item_name: String::new(),
+            item_count: 1,
+            item_cost_cents: budget_cents_outgoing,
+            budget_cents_outgoing: budget_cents_outgoing,
+            donor: String::new(),
+            donor_id: String::new(),
+            recipient: recipient,
+            recipient_id: recipient_id,
+            is_special: false,
+            is_giveout: true,
+            is_count: false,
+            is_budget: true,
+            is_incoming_donation: false,
+            is_ffa: false,
+        };
     }
-    pub fn budget_incoming(username: String, user_id: String, is_billed: bool, budget_cents_incoming: i32, day: DateTime<Utc>, recipient: String, recipient_id: String) -> Self {
-        unimplemented!()
+    pub fn budget_incoming(username: String, user_id: String, is_billed: bool, budget_cents_incoming: i32, day: DateTime<Utc>, donor: String, donor_id: String) -> Self {
+        return OversightCSVLine {
+            username: username,
+            user_id: user_id,
+            is_billed: is_billed,
+            day: day,
+            item_name: String::new(),
+            item_count: 1,
+            item_cost_cents: (-1i32) * budget_cents_incoming,
+            budget_cents_outgoing: (-1i32) * budget_cents_incoming,
+            donor: donor,
+            donor_id: donor_id,
+            recipient: String::new(),
+            recipient_id: String::new(),
+            is_special: false,
+            is_giveout: true,
+            is_count: false,
+            is_budget: true,
+            is_incoming_donation: true,
+            is_ffa: false,
+        };
     }
     pub fn count_giveout_outgoing(username: String, user_id: String, is_billed: bool, item_name: String, item_count: u32, item_cost_cents: i32, day: DateTime<Utc>, recipient: String, recipient_id: String) -> Self {
-        unimplemented!()
+        return OversightCSVLine {
+            username: username,
+            user_id: user_id,
+            is_billed: is_billed,
+            day: day,
+            item_name: item_name,
+            item_count: item_count,
+            item_cost_cents: item_cost_cents,
+            budget_cents_outgoing: 0,
+            donor: String::new(),
+            donor_id: String::new(),
+            recipient: recipient,
+            recipient_id: recipient_id,
+            is_special: false,
+            is_giveout: true,
+            is_count: true,
+            is_budget: false,
+            is_incoming_donation: false,
+            is_ffa: false,
+        };
     }
     pub fn normal_purchase(username: String, user_id: String, is_billed: bool, item_name: String, item_count: u32, item_cost_cents: i32, day: DateTime<Utc>) -> Self {
-        unimplemented!()
+        return OversightCSVLine {
+            username: username,
+            user_id: user_id,
+            is_billed: is_billed,
+            day: day,
+            item_name: item_name,
+            item_count: item_count,
+            item_cost_cents: item_cost_cents,
+            budget_cents_outgoing: 0,
+            donor: String::new(),
+            donor_id: String::new(),
+            recipient: String::new(),
+            recipient_id: String::new(),
+            is_special: true,
+            is_giveout: false,
+            is_count: false,
+            is_budget: false,
+            is_incoming_donation: false,
+            is_ffa: false,
+        };
     }
     pub fn special_purchase(username: String, user_id: String, is_billed: bool, item_name: String, item_cost_cents: i32, day: DateTime<Utc>) -> Self {
-        unimplemented!()
+        return OversightCSVLine {
+            username: username,
+            user_id: user_id,
+            is_billed: is_billed,
+            day: day,
+            item_name: item_name,
+            item_count: 1,
+            item_cost_cents: item_cost_cents,
+            budget_cents_outgoing: 0,
+            donor: String::new(),
+            donor_id: String::new(),
+            recipient: String::new(),
+            recipient_id: String::new(),
+            is_special: false,
+            is_giveout: false,
+            is_count: false,
+            is_budget: false,
+            is_incoming_donation: false,
+            is_ffa: false,
+        };
     }
 
 
     fn fmt(&self) -> Vec<String> {
-        unimplemented!()
+        return vec![
+            self.username.to_string(), self.user_id.to_string(), if self.is_billed {"true".to_string()} else {"false".to_string()},
+            self.day.format("%d.%m.%Y").to_string(), self.item_name.to_string(), self.item_count.to_string(),
+            cents_to_currency_string(self.item_cost_cents), self.budget_cents_outgoing.to_string(), self.donor.to_string(),
+            self.donor_id.to_string(), self.recipient.to_string(), self.recipient_id.to_string(),
+            if self.is_special {"true".to_string()} else {"false".to_string()}, if self.is_giveout {"true".to_string()} else {"false".to_string()}, if self.is_count {"true".to_string()} else {"false".to_string()},
+            if self.is_budget {"true".to_string()} else {"false".to_string()}, if self.is_incoming_donation {"true".to_string()} else {"false".to_string()}, if self.is_ffa {"true".to_string()} else {"false".to_string()},
+        ];
     }
 }
 
@@ -387,7 +507,8 @@ impl BillFormatting for Bill {
     }
 
     fn documentation_header(&self, conf: &SewobeConfiguration) -> Vec<String> {
-        unimplemented!()
+        let raw_header = "username;user_id;is_billed;day;item_name;item_count;item_cost_per_unit;budget_cents_outgoing;donor;donor_id;recipient;recipient_id;is_special;is_giveout;is_count;is_budget;is_incoming_donation;is_ffa";
+        return raw_header.split(";").map(|s| s.to_string()).collect();
     }
 }
 
@@ -734,8 +855,8 @@ mod tests {
             template_for_csv_line: String::new(),
         };
 
-        let should_header: Vec<String> = vec![];
-        let should_lines: Vec<Vec<String>> = vec![];
+        let should_header: Vec<String> = vec!["username", "user_id", "is_billed", "day", "item_name", "item_count", "item_cost_per_unit", "budget_cents_outgoing", "donor", "donor_id", "recipient", "recipient_id", "is_special", "is_giveout", "is_count", "is_budget", "is_incoming_donation", "is_ffa"].iter().map(|s|s.to_string()).collect();
+        let should_lines: Vec<Vec<String>> = vec![vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "14.07.2017".to_string(), "beer".to_string(), "3".to_string(), "0,95".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "14.07.2017".to_string(), "soda".to_string(), "19".to_string(), "0,85".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "beer".to_string(), "99".to_string(), "0,95".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "Banana".to_string(), "1".to_string(), "123,45".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "beer".to_string(), "9".to_string(), "0,95".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "true".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "soda".to_string(), "1234".to_string(), "0,85".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "true".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "".to_string(), "1".to_string(), "0,2-5".to_string(), "-25".to_string(), "bob".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "true".to_string(), "true".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "".to_string(), "1".to_string(), "0,45".to_string(), "45".to_string(), "".to_string(), "".to_string(), "charlie".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "".to_string(), "1".to_string(), "-1,40".to_string(), "-140".to_string(), "charlie".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "true".to_string(), "true".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "14.07.2017".to_string(), "beer".to_string(), "3".to_string(), "0,95".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "14.07.2017".to_string(), "soda".to_string(), "19".to_string(), "0,85".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "beer".to_string(), "99".to_string(), "0,95".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "Banana".to_string(), "1".to_string(), "123,45".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "beer".to_string(), "9".to_string(), "0,95".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "true".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "soda".to_string(), "1234".to_string(), "0,85".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "true".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "".to_string(), "1".to_string(), "0,2-5".to_string(), "-25".to_string(), "bob".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "true".to_string(), "true".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "".to_string(), "1".to_string(), "0,45".to_string(), "45".to_string(), "".to_string(), "".to_string(), "charlie".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "".to_string(), "1".to_string(), "-1,40".to_string(), "-140".to_string(), "charlie".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "true".to_string(), "true".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "14.07.2017".to_string(), "beer".to_string(), "3".to_string(), "0,95".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "14.07.2017".to_string(), "soda".to_string(), "19".to_string(), "0,85".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "beer".to_string(), "99".to_string(), "0,95".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "Banana".to_string(), "1".to_string(), "123,45".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "beer".to_string(), "9".to_string(), "0,95".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "true".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "soda".to_string(), "1234".to_string(), "0,85".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "true".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "".to_string(), "1".to_string(), "0,2-5".to_string(), "-25".to_string(), "bob".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "true".to_string(), "true".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "".to_string(), "1".to_string(), "0,45".to_string(), "45".to_string(), "".to_string(), "".to_string(), "charlie".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "".to_string(), "1".to_string(), "-1,40".to_string(), "-140".to_string(), "charlie".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "true".to_string(), "true".to_string(), "false".to_string()]];
 
         let is_header = bill.documentation_header(&conf);
 
@@ -746,5 +867,10 @@ mod tests {
 
 
         assert_eq!(should_lines, is_lines);
+
+
+        for row in &is_lines {
+            assert_eq!(row.len(), should_header.len());
+        }
     }
 }
