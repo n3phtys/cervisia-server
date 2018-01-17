@@ -5,6 +5,7 @@ extern crate iron;
 extern crate staticfile;
 extern crate time;
 extern crate rustix_bl;
+extern crate lettre_email;
 #[macro_use]
 extern crate log;
 extern crate simple_logger;
@@ -32,15 +33,10 @@ extern crate typescriptify;
 use iron::prelude::*;
 use iron::{BeforeMiddleware, AfterMiddleware, typemap};
 use time::precise_time_ns;
-//use std::path::Path;
 
 use iron::Iron;
-//use staticfile::Static;
 use server::*;
-//use manager::*;
 use configuration::*;
-//use mail::*;
-//use mount::Mount;
 
 pub mod mail;
 
@@ -76,17 +72,6 @@ pub fn hello_world(_: &mut Request) -> IronResult<Response> {
     Ok(Response::with((iron::status::Ok, "Hello World")))
 }
 
-/*fn timer_server() -> () {
-    let mut chain = Chain::new(hello_world);
-    chain.link_before(ResponseTime);
-    chain.link_after(ResponseTime);
-    println!("Iron Builder Thread starts here");
-    let mut serv = Iron::new(chain).http("localhost:8080").unwrap();
-
-    println!("Iron Builder Thread now here");
-    let _ = serv.close();
-}*/
-
 
 fn main() {
     let logger = simple_logger::init().unwrap();
@@ -94,29 +79,3 @@ fn main() {
     let path = path_to_config_file_and_mkdirs();
     watch_config_changes(&path, execute_cervisia_server);
 }
-
-
-/*fn old_main() {
-    simple_logger::init().unwrap();
-    println!("Hello, world!");
-    info!("Logging example message to info");
-    timer_server();
-}*/
-
-
-//
-//fn serve_static_files_to_root(dir: std::path::PathBuf) {
-//    let mut mount = Mount::new();
-//
-//    // Serve the shared JS/CSS at /
-//    mount.mount("/", Static::new(Path::new("target/doc/")));
-//    // Serve the static file docs at /doc/
-//    mount.mount("/doc/", Static::new(Path::new("target/doc/staticfile/")));
-//    // Serve the source code at /src/
-//    mount.mount("/src/", Static::new(Path::new("target/doc/src/staticfile/lib.rs.html")));
-//
-//    println!("Doc server running on http://localhost:3000/doc/");
-//
-//    Iron::new(mount).http("127.0.0.1:3000").unwrap();
-//}
-

@@ -6,9 +6,12 @@ use lettre::smtp::ClientSecurity;
 use lettre::smtp::client::net::*;
 use lettre::smtp::ConnectionReuseParameters;
 use lettre;
+use time;
 use native_tls::TlsConnector;
 use uuid::Uuid;
 use configuration::*;
+use lettre_email::*;
+use std::path::Path;
 use std;
 
 
@@ -35,12 +38,44 @@ pub fn send_mail(receiver_emails: Vec<&str>, subject: &str, body: &str, attachme
             let my_uuid = Uuid::new_v4();
             let uuid_str = format!("{}", my_uuid);
 
-            let email = SimpleSendableEmail::new(
+
+            let mut email_builder = SimpleEmail::default();
+
+            println!("Building email begin");
+
+            email_builder = email_builder
+                .from(config.sender_email_address.to_string())
+                .reply_to(config.sender_email_address.to_string())
+                .text(body)
+                .date(time::now().clone())
+                .subject(subject);
+
+            for receiver in &receiver_emails {
+                email_builder = email_builder.to(*receiver);
+            }
+
+            for (filename, filecontent) in attachments {
+                let attachstring : String = format!("Content-Disposition: attachment; filename=\"{}\"
+Content-Type: text/plain\n\n{}", filename, filecontent);
+                println!("Attaching attachment:\n{}", attachstring);
+                let attachref : &str = &attachstring;
+
+                email_builder = email_builder.attachment("Cargo.toml");
+            }
+
+
+            let email_result = email_builder.into_email();
+            println!("Building email unwrap: {:?}", email_result);
+
+            let email = email_result.unwrap();
+            println!("Trying to send email: {:?}", email);
+
+            /*let email = SimpleSendableEmail::new(
                 EmailAddress::new(config.sender_email_address.to_string()),
                 receiver_emails.iter().map(|e| EmailAddress::new(e.to_string())).collect(),
                 uuid_str,
                 format!("Subject:{}\n\n{}\n", subject, body),
-            );
+            );*/
 
 
             let tls: ClientTlsParameters = {
