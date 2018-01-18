@@ -3,6 +3,7 @@ use iron::{BeforeMiddleware, AfterMiddleware, typemap};
 use time;
 use time::precise_time_ns;
 use std::path::Path;
+use chrono::prelude::*;
 use std::collections::*;
 use std::error::Error;
 
@@ -126,10 +127,6 @@ fn typescript_definition_string() -> String {
 pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Listening {
     let mut router = Router::new();
 
-    let biller_config = billformatter::SewobeConfiguration {
-        static_csv_headerline: String::new(),
-        template_for_csv_line: String::new(),
-    };
 
     //let endpoints = typescript_definition_string();
     router.get("/endpoints", |req: &mut iron::request::Request| Ok(Response::with((iron::status::Ok, typescript_definition_string()))), "endpoints");
@@ -168,7 +165,7 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
         let config = config.clone();
         router.post("/bill/export", move |req: &mut iron::request::Request| {
             let conf = config.clone();
-            export_bill(req, &conf, &biller_config )
+            export_bill(req, &conf )
         }, "exportbill");
 
     }
@@ -1083,7 +1080,7 @@ pub mod responsehandlers {
         };
     }
 
-    pub fn export_bill(req: &mut iron::request::Request, conf: &configuration::ServerConfig, billconfig: &billformatter::SewobeConfiguration) -> IronResult<Response> {
+    pub fn export_bill(req: &mut iron::request::Request, conf: &configuration::ServerConfig) -> IronResult<Response> {
         let posted_body = extract_body(req);
         println!("posted_body = {:?}", posted_body);
         let parsed_body: ExportBill = serde_json::from_str(&posted_body).unwrap();
@@ -1108,7 +1105,7 @@ pub mod responsehandlers {
 
                         match parsed_body.limit_to_user {
                             Some(user_id) => {
-                                let subject = "Your bill from Cervisia".to_string();
+                                let subject = format!("Your Cervisia bill export on {}", Utc::now().format("%d.%m.%Y"));
                                 let body_cells = bill.format_as_personalized_documentation(user_id);
                                 //TODO: replace delimiter by making it configurable
 
@@ -1119,13 +1116,43 @@ pub mod responsehandlers {
                                 }
                                 let body: String = lines.join("\n");
 
-                                mail::send_mail(&parsed_body.email_address, &subject, &body, &std::collections::HashMap::new(), conf).unwrap();
+                                let attachments: HashMap<String, String> = {
+                                    let mut hm = HashMap::new();
+                                    hm.insert("exported_bill.csv".to_string(), body);
+                                    hm
+                                };
+
+                                mail::send_mail(&parsed_body.email_address, &subject, "Your bill is attached to this mail as a CSV file", &attachments, conf).unwrap();
                             },
                             None => {
-                                //TODO: construct csv to attach to mail
-                                //TODO: construct total list for all users
-                                //TODO: send both to receiver
-                                unimplemented!()
+                                let subject = format!("Cervisia bill export on {}", Utc::now().format("%d.%m.%Y"));
+                                // construct csv to attach to mail
+                                let body_a_cells = bill.format_as_sewobe_csv();
+                                // construct total list for all users
+                                let body_b_cells = bill.format_as_documentation();
+
+                                // send both to receiver
+                                let mut lines_a: Vec<String> = Vec::new();
+                                let mut lines_b: Vec<String> = Vec::new();
+
+                                for line_vec in body_a_cells {
+                                    lines_a.push(line_vec.join(";"));
+                                }
+                                let body_a: String = lines_a.join("\n");
+
+                                for line_vec in body_b_cells {
+                                    lines_b.push(line_vec.join(";"));
+                                }
+                                let body_b: String = lines_b.join("\n");
+
+                                let attachments: HashMap<String, String> = {
+                                    let mut hm = HashMap::new();
+                                    hm.insert("internal_oversight.csv".to_string(), body_b);
+                                    hm.insert("sewobe_import.csv".to_string(), body_a);
+                                    hm
+                                };
+
+                                mail::send_mail(&parsed_body.email_address, &subject, "The bill is attached as two CSV files. One is to import into SEWOBE, the other is for internal tracking and contains additional information.", &attachments, conf).unwrap();
                             },
                         }
 
@@ -1537,11 +1564,11 @@ pub mod responsehandlers {
 pub fn execute_cervisia_server(with_config: &ServerConfig,
                                old_server: Option<iron::Listening>, backend: Option<Backend>) -> (iron::Listening) {
 
-    {
-        let mut attachments : std::collections::HashMap<&str, &str> = std::collections::HashMap::new();
+    if false {
+        let mut attachments : std::collections::HashMap<String, String> = std::collections::HashMap::new();
 
-        attachments.insert("first_attachment.txt", "Hello World from first attachment\nWith a linebreak!");
-        attachments.insert("second_attachment.txt", "Hello World from second attachment\nWith a linebreak!");
+        attachments.insert("first_attachment.txt".to_string(), "Hello World from first attachment\nWith a linebreak!".to_string());
+        attachments.insert("second_attachment.txt".to_string(), "Hello World from second attachment\nWith a linebreak!".to_string());
 
 
     let email = mail::send_mail("christopher.kaag@gmail.com", "my test subject line wit", "my complete body\nwith a linebreak", &attachments, with_config);
@@ -1624,17 +1651,6 @@ pub struct PaginatedResult<T> {
 }
 
 
-pub trait RefreshStateExt {
-    fn from_request() -> Self;
-}
-
-
-impl RefreshStateExt for ParametersAll {
-    //called for writes, as we need the full set of parameters
-    fn from_request() -> Self {
-        unimplemented!()
-    }
-}
 
 
 pub trait WriteApplicator {

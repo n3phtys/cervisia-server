@@ -16,7 +16,7 @@ use std::path::Path;
 use std;
 
 
-pub fn send_mail(receiver_email: &str, subject: &str, body: &str, attachments: &std::collections::HashMap<&str, &str>, config: &ServerConfig) -> Result<lettre::smtp::response::Response, lettre::smtp::error::Error> {
+pub fn send_mail(receiver_email: &str, subject: &str, body: &str, attachments: &std::collections::HashMap<String, String>, config: &ServerConfig) -> Result<lettre::smtp::response::Response, lettre::smtp::error::Error> {
 
     //implement attachments as multipart/mixed as in: https://github.com/lettre/lettre/issues/201
 

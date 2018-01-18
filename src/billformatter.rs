@@ -5,11 +5,6 @@ use time;
 use chrono::offset::LocalResult;
 use std;
 
-pub struct SewobeConfiguration {
-    pub static_csv_headerline: String,
-    pub template_for_csv_line: String,
-}
-
 //following template placeholders will be string-replaced inside the configured template_for_csv_line when calling format_as_sewobe_csv()
 
 static TEMPLATE_PLACEHOLDER_MEMBER_NR: &'static str = "TEMPLATE_PLACEHOLDER_MEMBER_NR";
@@ -32,14 +27,14 @@ static TEMPLATE_PLACEHOLDER_REMARK: &'static str = "TEMPLATE_PLACEHOLDER_REMARK"
 
 pub trait BillFormatting {
     //takes configuration and outputs a sewobe csv string
-    fn format_as_sewobe_csv(&self, conf: &SewobeConfiguration) -> Vec<Vec<String>>;
+    fn format_as_sewobe_csv(&self) -> Vec<Vec<String>>;
 
     //outputs reduced bill string for one specific person
     fn format_as_personalized_documentation(&self, user_id: u32) -> Vec<Vec<String>>;
 
 
-    fn sewobe_header(&self, conf: &SewobeConfiguration) -> Vec<String>;
-    fn documentation_header(&self, conf: &SewobeConfiguration) -> Vec<String>;
+    fn sewobe_header(&self) -> Vec<String>;
+    fn documentation_header(&self) -> Vec<String>;
 
     //outputs bill for everyone in the bill (ordered alphabetically by name)
     fn format_as_documentation(&self) -> Vec<Vec<String>> {
@@ -332,7 +327,7 @@ impl<T> InOrderableusize for std::collections::HashMap<usize, T> {
 
 
 impl BillFormatting for Bill {
-    fn format_as_sewobe_csv(&self, conf: &SewobeConfiguration) -> Vec<Vec<String>> {
+    fn format_as_sewobe_csv(&self) -> Vec<Vec<String>> {
         let mut result: Vec<Vec<String>> = Vec::new();
         let timestamp_to: i64 = self.timestamp_to;
         let timestamp_from: i64 = self.timestamp_from;
@@ -501,12 +496,12 @@ impl BillFormatting for Bill {
         }
         return v;
     }
-    fn sewobe_header(&self, conf: &SewobeConfiguration) -> Vec<String> {
+    fn sewobe_header(&self) -> Vec<String> {
         let raw_header = "Mitgliedsnummer;R vs G;Rechnungsnr.;Rechnungsname;Rechnungsdatum;Positionsnr.;Positionsname;Positionsbeschreibung;Anzahl;Preis pro Einheit;2 == Lastschrift und 1 == Ueberweisung;Empfang per Mail;Zahlungsziel in Tagen;SEPA Intervall (0 fuer einmalig);Datum Rechnungsstellung;Datum Faelligkeit;Datum Positionsende;Mehrwertsteuersatz;Beschreibung; Spendenfähig;Spende;Buchhaltungskonto;Steuerschluessel;Unterkonto Kantine";
         return raw_header.split(";").map(|s| s.to_string()).collect();
     }
 
-    fn documentation_header(&self, conf: &SewobeConfiguration) -> Vec<String> {
+    fn documentation_header(&self) -> Vec<String> {
         let raw_header = "username;user_id;is_billed;day;item_name;item_count;item_cost_per_unit;budget_cents_outgoing;donor;donor_id;recipient;recipient_id;is_special;is_giveout;is_count;is_budget;is_incoming_donation;is_ffa";
         return raw_header.split(";").map(|s| s.to_string()).collect();
     }
@@ -517,7 +512,6 @@ impl BillFormatting for Bill {
 mod tests {
     use rustix_bl;
     use billformatter::BillFormatting;
-    use billformatter::SewobeConfiguration;
     use rustix_bl::datastore::*;
     use std::collections::*;
     use rustix_bl::datastore::*;
@@ -669,10 +663,6 @@ mod tests {
                 },
             },
         };
-        let conf: SewobeConfiguration = SewobeConfiguration {
-            static_csv_headerline: String::new(),
-            template_for_csv_line: String::new(),
-        };
 
         let should: Vec<Vec<String>> = vec![
             //header
@@ -685,8 +675,8 @@ mod tests {
         let should_lines = vec!["ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;0;beer;Selbst gekauft;3;0,95;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;1;soda;Selbst gekauft;19;0,85;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;2;beer;Selbst gekauft;99;0,95;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;3;Banana;Speziell abgestrichen;1;123,45;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;4;beer;An alle ausgegeben;9;0,95;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;5;soda;An alle ausgegeben;1234;0,85;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;6;Guthaben erhalten von bob;Guthaben verbraucht: 25 Cents (intern verrechnet);1;0,2-5;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;7;Guthaben verschenkt an charlie;Guthaben verbraucht: 45 Cents (intern verrechnet);1;0,45;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;8;Guthaben erhalten von charlie;Guthaben verbraucht: 140 Cents (intern verrechnet);1;-1,40;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293"];
 
 
-        let is_content = bill.format_as_sewobe_csv(&conf);
-        let is_header = bill.sewobe_header(&conf);
+        let is_content = bill.format_as_sewobe_csv();
+        let is_header = bill.sewobe_header();
 
         let mut is_lines: Vec<String> = is_content.iter().map(|vec| vec.join(";")).collect();
 
@@ -850,15 +840,11 @@ mod tests {
                 },
             },
         };
-        let conf: SewobeConfiguration = SewobeConfiguration {
-            static_csv_headerline: String::new(),
-            template_for_csv_line: String::new(),
-        };
 
         let should_header: Vec<String> = vec!["username", "user_id", "is_billed", "day", "item_name", "item_count", "item_cost_per_unit", "budget_cents_outgoing", "donor", "donor_id", "recipient", "recipient_id", "is_special", "is_giveout", "is_count", "is_budget", "is_incoming_donation", "is_ffa"].iter().map(|s|s.to_string()).collect();
         let should_lines: Vec<Vec<String>> = vec![vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "14.07.2017".to_string(), "beer".to_string(), "3".to_string(), "0,95".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "14.07.2017".to_string(), "soda".to_string(), "19".to_string(), "0,85".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "beer".to_string(), "99".to_string(), "0,95".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "Banana".to_string(), "1".to_string(), "123,45".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "beer".to_string(), "9".to_string(), "0,95".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "true".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "soda".to_string(), "1234".to_string(), "0,85".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "true".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "".to_string(), "1".to_string(), "0,2-5".to_string(), "-25".to_string(), "bob".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "true".to_string(), "true".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "".to_string(), "1".to_string(), "0,45".to_string(), "45".to_string(), "".to_string(), "".to_string(), "charlie".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "".to_string(), "1".to_string(), "-1,40".to_string(), "-140".to_string(), "charlie".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "true".to_string(), "true".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "14.07.2017".to_string(), "beer".to_string(), "3".to_string(), "0,95".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "14.07.2017".to_string(), "soda".to_string(), "19".to_string(), "0,85".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "beer".to_string(), "99".to_string(), "0,95".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "Banana".to_string(), "1".to_string(), "123,45".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "beer".to_string(), "9".to_string(), "0,95".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "true".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "soda".to_string(), "1234".to_string(), "0,85".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "true".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "".to_string(), "1".to_string(), "0,2-5".to_string(), "-25".to_string(), "bob".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "true".to_string(), "true".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "".to_string(), "1".to_string(), "0,45".to_string(), "45".to_string(), "".to_string(), "".to_string(), "charlie".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "".to_string(), "1".to_string(), "-1,40".to_string(), "-140".to_string(), "charlie".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "true".to_string(), "true".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "14.07.2017".to_string(), "beer".to_string(), "3".to_string(), "0,95".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "14.07.2017".to_string(), "soda".to_string(), "19".to_string(), "0,85".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "beer".to_string(), "99".to_string(), "0,95".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "Banana".to_string(), "1".to_string(), "123,45".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "beer".to_string(), "9".to_string(), "0,95".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "true".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "soda".to_string(), "1234".to_string(), "0,85".to_string(), "0".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "false".to_string(), "false".to_string(), "true".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "".to_string(), "1".to_string(), "0,2-5".to_string(), "-25".to_string(), "bob".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "true".to_string(), "true".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "".to_string(), "1".to_string(), "0,45".to_string(), "45".to_string(), "".to_string(), "".to_string(), "charlie".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "false".to_string()], vec!["alice".to_string(), "ExternalUserId0".to_string(), "true".to_string(), "17.07.2017".to_string(), "".to_string(), "1".to_string(), "-1,40".to_string(), "-140".to_string(), "charlie".to_string(), "".to_string(), "".to_string(), "".to_string(), "false".to_string(), "true".to_string(), "false".to_string(), "true".to_string(), "true".to_string(), "false".to_string()]];
 
-        let is_header = bill.documentation_header(&conf);
+        let is_header = bill.documentation_header();
 
         assert_eq!(should_header, is_header);
 
