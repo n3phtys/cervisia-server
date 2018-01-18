@@ -1119,7 +1119,7 @@ pub mod responsehandlers {
                                 }
                                 let body: String = lines.join("\n");
 
-                                mail::send_mail(vec![&parsed_body.email_address], &subject, &body, &std::collections::HashMap::new(), conf).unwrap();
+                                mail::send_mail(&parsed_body.email_address, &subject, &body, &std::collections::HashMap::new(), conf).unwrap();
                             },
                             None => {
                                 //TODO: construct csv to attach to mail
@@ -1544,7 +1544,7 @@ pub fn execute_cervisia_server(with_config: &ServerConfig,
         attachments.insert("second_attachment.txt", "Hello World from second attachment\nWith a linebreak!");
 
 
-    let email = mail::send_mail(vec!["christopher.kaag@gmail.com"], "my subject line", "my complete body\nwith a linebreak", &attachments, with_config);
+    let email = mail::send_mail("christopher.kaag@gmail.com", "my test subject line wit", "my complete body\nwith a linebreak", &attachments, with_config);
     println!("{:?}", email.unwrap());
     }
 
