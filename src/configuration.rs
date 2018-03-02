@@ -36,6 +36,25 @@ pub struct ServerConfig {
 }
 
 
+impl ServerConfig {
+    fn inline_default_config() -> ServerConfig {
+        return ServerConfig {
+            top_items_per_user: 4,
+            server_port: 8080,
+            host: "localhost".to_string(),
+            web_path: "dist/".to_string(),
+            use_persistence: false,
+            persistence_file_path: "./my-cervisia-lmdb.db".to_string(),
+            use_sendmail_instead_of_smtp: None,
+            sender_email_address: "username@hostname.org".to_string(),
+            smtp_host_address: "smtp.hostname.org".to_string(),
+            smpt_credentials_loginname: "username".to_string(),
+            smpt_credentials_password: "s3cr3t_p@ssw0rd".to_string(),
+            smtp_port: 587,
+        };
+    }
+}
+
 impl Default for ServerConfig {
     fn default() -> Self {
         return ServerConfig {
@@ -62,7 +81,14 @@ trait Loadable where Self: std::marker::Sized {
 
 impl Loadable for ServerConfig {
     fn from_path(path: &std::path::PathBuf) -> Result<Self, io::Error> {
-        let mut file = File::open(path)?;
+        let mut fileRaw = File::open(path);
+
+        if fileRaw.is_err() {
+            return Ok(ServerConfig::inline_default_config())
+        }
+
+        let mut file = fileRaw?;
+
         let mut s = String::new();
         file.read_to_string(&mut s)?;
         let decoded: ServerConfig = toml::from_str(&s).unwrap();
@@ -93,11 +119,11 @@ pub fn path_to_config_file_and_mkdirs() -> std::path::PathBuf {
     if f_opt.is_ok() {
         println!("Config file found in {:?}", path2);
     } else {
-        let path3 = path2.clone();
-        let mut k = File::create(path3).unwrap();
-        let str_incl = include_str!("SettingsDefault.toml");
-        k.write_all(
-            str_incl.as_bytes()).unwrap();
+        //let path3 = path2.clone();
+        //let mut k = File::create(path3).unwrap();
+        //let str_incl = include_str!("SettingsDefault.toml");
+        //k.write_all(
+        //    str_incl.as_bytes()).unwrap();
     }
     return path2;
 }
