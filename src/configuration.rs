@@ -61,7 +61,7 @@ impl Default for ServerConfig {
             top_items_per_user: 4,
             server_port: 8081,
             host: "localhost".to_string(),
-            web_path: "web/".to_string(),
+            web_path: "dist/".to_string(),
             use_persistence: false,
             persistence_file_path: "./my-cervisia-lmdb.db".to_string(),
             use_sendmail_instead_of_smtp: None,

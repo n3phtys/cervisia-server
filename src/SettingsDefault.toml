@@ -1,7 +1,7 @@
 top_items_per_user = 4
 host = "localhost"
 server_port = 8080
-web_path = "web/"
+web_path = "dist/"
 use_persistence = false
 persistence_file_path = "./my-cervisia-lmdb.db"
 #use_sendmail_instead_of_smtp = false

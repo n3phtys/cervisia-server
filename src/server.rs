@@ -1761,7 +1761,7 @@ mod tests {
             top_items_per_user: 4,
             host: "localhost".to_string(),
             server_port: get_and_increment_port(),
-            web_path: "web/".to_string(),
+            web_path: "dist/".to_string(),
             use_persistence: false,
             persistence_file_path: String::new(),
             use_sendmail_instead_of_smtp: None,
