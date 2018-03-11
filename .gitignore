@@ -3,3 +3,4 @@
 .idea/
 cervisia-server.iml
 Cargo.lock
+users.json

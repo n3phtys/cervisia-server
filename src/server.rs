@@ -21,6 +21,7 @@ use std;
 use rustix_bl::rustix_event_shop;
 use std::sync::{Arc, RwLock};
 use std::thread;
+use importer::*;
 use manager::ParametersAll;
 use reqwest;
 use configuration;
@@ -47,6 +48,7 @@ use mail;
 use manager::*;
 
 use params::{Params, Value};
+use importer;
 
 pub type Backend = rustix_bl::rustix_backend::RustixBackend;
 
@@ -202,6 +204,8 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
             }
             b
         });
+
+        import_users_into_store(&mut backend, load_users_json_file());
 
         let state = State::<SharedBackend>::both(backend);
 

@@ -81,13 +81,13 @@ trait Loadable where Self: std::marker::Sized {
 
 impl Loadable for ServerConfig {
     fn from_path(path: &std::path::PathBuf) -> Result<Self, io::Error> {
-        let mut fileRaw = File::open(path);
+        let mut file_raw = File::open(path);
 
-        if fileRaw.is_err() {
+        if file_raw.is_err() {
             return Ok(ServerConfig::inline_default_config())
         }
 
-        let mut file = fileRaw?;
+        let mut file = file_raw?;
 
         let mut s = String::new();
         file.read_to_string(&mut s)?;
@@ -175,8 +175,7 @@ pub fn watch_config_changes<F>(path_to_config_file: &std::path::PathBuf, functio
 
 
     watcher
-        .watch(path_to_config_file, RecursiveMode::NonRecursive)
-        .unwrap();
+        .watch(path_to_config_file, RecursiveMode::NonRecursive);
 
     // This is a simple loop, but you may want to use more complex logic here,
     // for example to handle I/O.
