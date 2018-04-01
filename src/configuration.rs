@@ -14,6 +14,7 @@ use std::io;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use server::Backend;
+use std::env;
 
 
 #[derive(Debug, Deserialize, Clone)]
@@ -37,7 +38,7 @@ pub struct ServerConfig {
 
 
 impl ServerConfig {
-    fn inline_default_config() -> ServerConfig {
+    pub fn inline_default_config() -> ServerConfig {
         return ServerConfig {
             top_items_per_user: 4,
             server_port: 8080,
@@ -53,7 +54,57 @@ impl ServerConfig {
             smtp_port: 587,
         };
     }
+
+    pub fn from_env() -> ServerConfig {
+        return ServerConfig {
+            top_items_per_user: get_env_u16("CERVISIA_NUMBER_OF_TOP_ITEMS", 4),
+            server_port: get_env_u16("CERVISIA_SERVER_PORT", 8080),
+            host: env::var("CERVISIA_SERVER_HOST").unwrap_or("localhost".to_string()),
+            web_path: env::var("CERVISIA_WEB_PATH").unwrap_or("dist/".to_string()),
+            use_persistence: ! env::var("CERVISIA_PERSISTENCE_PATH").is_err(),
+            persistence_file_path: env::var("CERVISIA_PERSISTENCE_PATH").unwrap_or("./my-cervisia-lmdb.db".to_string()),
+            use_sendmail_instead_of_smtp: get_env_bool("CERVISIA_SMTP_USE_SENDMAIL", None),
+            sender_email_address: env::var("CERVISIA_SMTP_SENDER").unwrap_or("username@hostname.org".to_string()),
+            smtp_host_address: env::var("CERVISIA_SMTP_HOST").unwrap_or("smtp.hostname.org".to_string()),
+            smpt_credentials_loginname: env::var("CERVISIA_SMTP_USERNAME").unwrap_or("username".to_string()),
+            smpt_credentials_password: env::var("CERVISIA_SMTP_PASSWORD").unwrap_or("s3cr3t_p@ssw0rd".to_string()),
+            smtp_port: get_env_u16("CERVISIA_SMTP_PORT", 587),
+        };
+    }
 }
+
+fn get_env_u16(key: &str, def: u16) -> u16 {
+    match env::var(key) {
+        Ok(s) => {
+            let x = s.parse::<u16>();
+            return match x {
+                Ok(v) => v,
+                Err(e) => def,
+            };
+        },
+        Err(e) => {
+            return def;
+        },
+    }
+}
+
+fn get_env_bool(key: &str, def : Option<bool>) -> Option<bool> {
+    match env::var(key) {
+        Ok(s) => {
+            let x = s.parse::<bool>();
+            return match x {
+                Ok(true) => Some(true),
+                Ok(false) => Some(false),
+                Err(e) => def,
+            };
+        },
+        Err(e) => {
+            return def;
+        },
+    }
+}
+
+
 
 impl Default for ServerConfig {
     fn default() -> Self {

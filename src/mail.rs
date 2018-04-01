@@ -118,11 +118,11 @@ Content-Type: text/plain; charset=utf-8
                 //let email = email_result.unwrap();
 
                 let email = SimpleSendableEmail::new(
-                    EmailAddress::new(config.sender_email_address.to_string()),
-                    vec![receiver_email.to_string()].iter().map(|e| EmailAddress::new(e.to_string())).collect(),
+                    config.sender_email_address.to_string(),
+                    &vec![receiver_email.to_string()],
                     message_id,
                     email_string,
-                );
+                ).unwrap();
 
 
                 println!("Trying to send email: {}", std::str::from_utf8(*(email.message())).unwrap());
@@ -162,7 +162,7 @@ Content-Type: text/plain; charset=utf-8
         }
         None => return Ok(lettre::smtp::response::Response::new(
             lettre::smtp::response::Code::new(
-                lettre::smtp::response::Severity::TransientNegativeCompletion, lettre::smtp::response::Category::Unspecified4, lettre::smtp::response::Detail(4),
+                lettre::smtp::response::Severity::TransientNegativeCompletion, lettre::smtp::response::Category::Unspecified4, lettre::smtp::response::Detail::Four,
             ), vec![])),
     }
 }

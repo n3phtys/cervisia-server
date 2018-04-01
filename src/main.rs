@@ -76,8 +76,10 @@ pub fn hello_world(_: &mut Request) -> IronResult<Response> {
 
 
 fn main() {
-    let logger = simple_logger::init().unwrap();
+    simple_logger::init().unwrap();
+    let config = ServerConfig::from_env();
 
-    let path = path_to_config_file_and_mkdirs();
-    watch_config_changes(&path, execute_cervisia_server);
+    println!("Found following config: {:?}", &config);
+
+    let listener = execute_cervisia_server(&config, None, None);
 }

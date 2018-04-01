@@ -2,6 +2,6 @@
 **/*.rs.bk
 .idea/
 cervisia-server.iml
-Cargo.lock
+*.mdb
 users.json
 users.json.tmp

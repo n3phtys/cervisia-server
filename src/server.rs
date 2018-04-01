@@ -190,7 +190,10 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
 
 
         let mut backend = backend.unwrap_or( if config.use_persistence {
-            let mut b = rustix_bl::build_persistent_backend(std::path::Path::new(&config.persistence_file_path));
+            //mkdir for database
+            let db_file_dir = std::path::Path::new(&config.persistence_file_path);
+            std::fs::create_dir_all(db_file_dir);
+            let mut b = rustix_bl::build_persistent_backend(db_file_dir);
             let c = b.reload().unwrap();
             if c == 0 && fill {
                 fill_backend_with_large_test_data(&mut b); //TODO: replace for production
