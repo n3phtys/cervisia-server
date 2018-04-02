@@ -157,6 +157,7 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     router.post("/purchases/ffa", ffa_purchase, "addffapurchase");
     router.post("/purchases/undo/user", undo_purchase_by_user, "undopurchaseuser");
     router.post("/purchases/undo/admin", undo_purchase_by_admin, "undopurchaseadmin");
+    router.post("/backup/snapshot", snapshot_by_admin, "backupsnapshot");
 
     router.post("/bill/create", create_bill, "createbill");
     router.post("/bill/update", update_bill, "updatebill");
@@ -433,6 +434,15 @@ pub mod responsehandlers {
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
         };
+    }
+
+    pub fn snapshot_by_admin(req: &mut iron::request::Request) -> IronResult<Response> {
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let mut dat = datholder.write().unwrap();
+        match dat.snapshot() {
+            Some(count) => Ok(Response::with((iron::status::Ok, count.to_string()))),
+            None => Ok(Response::with((iron::status::BadRequest, "Could not snapshot state, is this not a persistent implementation?"))),
+        }
     }
 
     pub fn undo_purchase_by_admin(req: &mut iron::request::Request) -> IronResult<Response> {
