@@ -198,6 +198,7 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
             if c == 0 && fill {
                 fill_backend_with_large_test_data(&mut b); //TODO: replace for production
             }
+            b.snapshot();
             b
         } else {
             let mut b = rustix_bl::build_transient_backend();

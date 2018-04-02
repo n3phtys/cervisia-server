@@ -5,3 +5,4 @@ cervisia-server.iml
 *.mdb
 users.json
 users.json.tmp
+snapshot.yaml
