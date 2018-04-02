@@ -1342,7 +1342,7 @@ dependencies = [
 [[package]]
 name = "rustix-bl"
 version = "0.4.2"
-source = "git+https://github.com/n3phtys/rustix-bl#a69bcba65bac7ca0468c18f5332e4ba83eb6047e"
+source = "git+https://github.com/n3phtys/rustix-bl#22986e4937b84dcb3d47e453652b4d8b19727eec"
 dependencies = [
  "bincode 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
