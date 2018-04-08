@@ -287,6 +287,62 @@ pub struct EnrichedFFA {
     pub donor: rustix_bl::datastore::User,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, TypeScriptify)]
+pub struct EnrichedCountOrBudgetGiveout {
+    pub id: u64,
+    pub items: Vec<rustix_bl::datastore::Item>,
+    pub cents_worth_total: u64,
+    pub cents_worth_used: u64,
+    pub total: u16,
+    pub left: u16,
+    pub text_message: String,
+    pub created_timestamp: i64,
+    pub donor: rustix_bl::datastore::User,
+    pub recipient: rustix_bl::datastore::User,
+}
+
+fn enrich_freeby(incoming: &rustix_bl::datastore::Freeby, datastore: &rustix_bl::datastore::Datastore) -> std::result::Result<EnrichedCountOrBudgetGiveout, Box<std::error::Error>> {
+    return match *incoming {
+        rustix_bl::datastore::Freeby::Transfer { ref id, ref cents_worth_total, ref cents_worth_used, ref created_timestamp, ref text_message, ref donor, ref recipient, ..} => {
+            Ok(EnrichedCountOrBudgetGiveout {
+                id: *id,
+                items: Vec::new(), //stays empty
+                cents_worth_total: *cents_worth_total,
+                cents_worth_used: *cents_worth_used,
+                total: 0,
+                left: 0,
+                text_message: text_message.to_string(),
+                created_timestamp: *created_timestamp,
+                donor: datastore.users.get(donor).unwrap().clone(),
+                recipient: datastore.users.get(recipient).unwrap().clone(),
+            })
+        },
+            rustix_bl::datastore::Freeby::Classic {ref id, ref allowed_number_total, ref allowed_number_used, ref allowed_drinks, ref allowed_categories, ref text_message, ref created_timestamp, ref donor, ref recipient , ..} => {
+            let mut items: Vec<rustix_bl::datastore::Item> = Vec::new();
+            let ids: HashSet<&u32> = allowed_drinks.iter().collect();
+            let cats: HashSet<String> = allowed_categories.iter().map(|s|s.to_string()).collect();
+            for (_, it) in &datastore.items {
+                if (!it.deleted) && (ids.contains(&it.item_id) || (it.category.is_some() && cats.contains(&it.category.clone().unwrap()))) {
+                    items.push(it.clone());
+                }
+            }
+            Ok(EnrichedCountOrBudgetGiveout {
+                id: *id,
+                total: *allowed_number_total,
+                left: *allowed_number_total - *allowed_number_used,
+                text_message: text_message.to_string(),
+                items: items,
+                cents_worth_total: 0,
+                cents_worth_used: 0,
+                created_timestamp: *created_timestamp,
+                donor: datastore.users.get(donor).unwrap().clone(),
+                recipient: datastore.users.get(recipient).unwrap().clone(),
+            })
+        },
+        rustix_bl::datastore::Freeby::FFA {..} => panic!("enrich_freeby on FFA called")
+    };
+}
+
 fn enrich_ffa(incoming: &rustix_bl::datastore::Freeby, datastore: &rustix_bl::datastore::Datastore) -> std::result::Result<EnrichedFFA, Box<std::error::Error>> {
     return match *incoming {
         rustix_bl::datastore::Freeby::FFA { ref id, ref allowed_categories, ref allowed_drinks, ref allowed_number_total, ref allowed_number_used, ref text_message, ref created_timestamp, ref donor } => {
@@ -307,7 +363,7 @@ fn enrich_ffa(incoming: &rustix_bl::datastore::Freeby, datastore: &rustix_bl::da
                 created_timestamp: *created_timestamp,
                 donor: datastore.users.get(donor).unwrap().clone(),
             })
-        }
+        },
         _ => panic!("enrich_ffa on non-FFA called")
     };
 }
@@ -745,11 +801,22 @@ impl ServableRustix for ServableRustixImpl {
                 let xsopt = backend.datastore.open_freebies.get(&param.count_pars.recipient_id);
                 let emptyvec: Vec<Freeby> = Vec::new();
                 let xs : &Vec<Freeby> = xsopt.unwrap_or(&emptyvec);
-                let result: PaginatedResult<Freeby> = PaginatedResult {
+
+
+                let mut xv : Vec<EnrichedCountOrBudgetGiveout> = Vec::new();
+
+                let mut xf: Vec<Freeby> = xs.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize).map(|r| r.clone()).collect();
+
+                for freeby in xf {
+                    xv.push(enrich_freeby(&freeby, &backend.datastore)?);
+                }
+
+
+                let result: PaginatedResult<EnrichedCountOrBudgetGiveout> = PaginatedResult {
                     total_count: xs.len() as u32,
                     from: param.pagination.start_inclusive,
                     to: param.pagination.end_exclusive,
-                    results: xs.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize).map(|r| r.clone()).collect(),
+                    results: xv,
                 };
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
             },
@@ -767,11 +834,23 @@ impl ServableRustix for ServableRustixImpl {
                     }
                 }
 
-                let result: PaginatedResult<Freeby> = PaginatedResult {
+
+                let mut xv : Vec<EnrichedCountOrBudgetGiveout> = Vec::new();
+
+                let mut xf: Vec<Freeby> = xs.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize).map(|r| r.clone()).collect();
+
+                for freeby in xf {
+                    xv.push(enrich_freeby(&freeby, &backend.datastore)?);
+                }
+
+
+
+
+                let result: PaginatedResult<EnrichedCountOrBudgetGiveout> = PaginatedResult {
                     total_count: xs.len() as u32,
                     from: param.pagination.start_inclusive,
                     to: param.pagination.end_exclusive,
-                    results: xs.iter().take(param.pagination.end_exclusive as usize).skip(param.pagination.start_inclusive as usize).map(|r| r.clone()).collect(),
+                    results: xv,
                 };
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
             },
