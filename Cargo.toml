@@ -32,4 +32,5 @@ params = "0.7"
 persistent = "0.3"
 typescriptify-derive = "0.1"
 typescriptify = "0.1"
-
+zip = "*"
+mime = "*"

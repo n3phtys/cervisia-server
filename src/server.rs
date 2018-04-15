@@ -1582,22 +1582,6 @@ pub mod responsehandlers {
 pub fn execute_cervisia_server(with_config: &ServerConfig,
                                old_server: Option<iron::Listening>, backend: Option<Backend>) -> (iron::Listening) {
 
-    if false {
-        let mut attachments : std::collections::HashMap<String, String> = std::collections::HashMap::new();
-
-        attachments.insert("first_attachment.txt".to_string(), "Hello World from first attachment\nWith a linebreak!".to_string());
-        attachments.insert("second_attachment.txt".to_string(), "Hello World from second attachment\nWith a linebreak!".to_string());
-
-
-    let email = mail::send_mail("christopher.kaag@gmail.com", "my test subject line wit", "my complete body\nwith a linebreak", &attachments, with_config);
-    println!("{:?}", email.unwrap());
-    }
-
-
-
-
-
-
 
 
     info!("execute_cervisia_server begins for config = {:?}", with_config);

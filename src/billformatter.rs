@@ -245,7 +245,7 @@ impl OversightCSVLine {
     fn fmt(&self) -> Vec<String> {
         return vec![
             self.username.to_string(), self.user_id.to_string(), if self.is_billed {"true".to_string()} else {"false".to_string()},
-            self.day.format("%d.%m.%Y").to_string(), self.item_name.to_string(), self.item_count.to_string(),
+            self.day.format(DATE_FORMAT_STRING).to_string(), self.item_name.to_string(), self.item_count.to_string(),
             cents_to_currency_string(self.item_cost_cents), self.budget_cents_outgoing.to_string(), self.donor.to_string(),
             self.donor_id.to_string(), self.recipient.to_string(), self.recipient_id.to_string(),
             if self.is_special {"true".to_string()} else {"false".to_string()}, if self.is_giveout {"true".to_string()} else {"false".to_string()}, if self.is_count {"true".to_string()} else {"false".to_string()},
@@ -258,8 +258,8 @@ impl SewobeCSVLine {
     //TODO: should get an export date, or not? or a finalization date? to calculate from there
     //TODO: remark should contain FROM and TO as readable date
     fn new(timestamp_from: i64, timestamp_to: i64, external_user_id: &str, position_name: &str, position_description: &str, position_index: u16, position_count: u32, position_price_per_unit: i32) -> Self {
-        let utc_timestamp_from = Utc.timestamp(timestamp_from, 0);
-        let utc_timestamp_to = Utc.timestamp(timestamp_to, 0);
+        let utc_timestamp_from = Utc.timestamp(timestamp_from / 1000, 0);
+        let utc_timestamp_to = Utc.timestamp(timestamp_to / 1000, 0);
 
         let billing_creation_date = utc_timestamp_to.clone(); //TODO: replace by first export date
 
@@ -286,7 +286,7 @@ impl SewobeCSVLine {
             bill_date_late: billing_creation_date + time::Duration::seconds(14 * 24 * 60 * 60),
             position_ends_date: billing_creation_date + time::Duration::seconds(100 * 365  * 24 * 60 * 60),
             tax_rate: "0".to_string(),
-            description: "KA ".to_string() + &utc_timestamp_from.format("%d.%m.%y").to_string() + "-" + &utc_timestamp_to.format("%d.%m.%y").to_string(),
+            description: "KA ".to_string() + &utc_timestamp_from.format(DATE_FORMAT_STRING_SHORT).to_string() + "-" + &utc_timestamp_to.format(DATE_FORMAT_STRING_SHORT).to_string(),
             is_not_donation: true,
             donation_remark: "".to_string(),
             billkeeping_account: "1112".to_string(),
@@ -297,10 +297,13 @@ impl SewobeCSVLine {
 
     fn fmt(&self) -> Vec<String> {
         vec![
-            self.external_user_id.to_string(), if self.use_r_vs_g { "2".to_string() } else { "1".to_string() }, self.bill_external_id.to_string(), self.bill_date.format("%d.%m.%Y").to_string(), self.position_index.to_string(), self.position_name.to_string(), self.position_description.to_string(), self.position_count.to_string(), cents_to_currency_string(self.price_per_unit_cents), if self.use_inbox {"2".to_string()} else {"1".to_string()}, if self.receive_mail {"2".to_string()} else {"1".to_string()}, self.payment_target_days.to_string(), self.sepa_interval.to_string(), self.bill_date_sent.format("%d.%m.%Y").to_string(), self.bill_date_late.format("%d.%m.%Y").to_string(), self.position_ends_date.format("%d.%m.%Y").to_string(), self.tax_rate.to_string(), self.description.to_string(), if self.is_not_donation {"0".to_string()} else {"1".to_string()}, self.donation_remark.to_string(), self.billkeeping_account.to_string(), self.tax_rate.to_string(), self.subaccount.to_string()
+            self.external_user_id.to_string(), if self.use_r_vs_g { "2".to_string() } else { "1".to_string() }, self.bill_external_id.to_string(), self.bill_date.format(DATE_FORMAT_STRING).to_string(), self.position_index.to_string(), self.position_name.to_string(), self.position_description.to_string(), self.position_count.to_string(), cents_to_currency_string(self.price_per_unit_cents), if self.use_inbox {"2".to_string()} else {"1".to_string()}, if self.receive_mail {"2".to_string()} else {"1".to_string()}, self.payment_target_days.to_string(), self.sepa_interval.to_string(), self.bill_date_sent.format(DATE_FORMAT_STRING).to_string(), self.bill_date_late.format(DATE_FORMAT_STRING).to_string(), self.position_ends_date.format(DATE_FORMAT_STRING).to_string(), self.tax_rate.to_string(), self.description.to_string(), if self.is_not_donation {"0".to_string()} else {"1".to_string()}, self.donation_remark.to_string(), self.billkeeping_account.to_string(), self.tax_rate.to_string(), self.subaccount.to_string()
         ]
     }
 }
+
+static DATE_FORMAT_STRING: &'static str = "%d.%m.%Y";
+static DATE_FORMAT_STRING_SHORT: &'static str = "%d.%m.%y";
 
 pub trait InOrderableu32 {
     fn in_order_keys(&self) -> Vec<u32>;
@@ -515,6 +518,9 @@ mod tests {
     use rustix_bl::datastore::*;
     use std::collections::*;
     use rustix_bl::datastore::*;
+    use chrono;
+    use chrono::*;
+    use billformatter::DATE_FORMAT_STRING;
 
 
     #[test]
@@ -672,7 +678,7 @@ mod tests {
         ];
 
 
-        let should_lines = vec!["ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;0;beer;Selbst gekauft;3;0,95;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;1;soda;Selbst gekauft;19;0,85;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;2;beer;Selbst gekauft;99;0,95;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;3;Banana;Speziell abgestrichen;1;123,45;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;4;beer;An alle ausgegeben;9;0,95;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;5;soda;An alle ausgegeben;1234;0,85;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;6;Guthaben erhalten von bob;Guthaben verbraucht: 25 Cents (intern verrechnet);1;0,2-5;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;7;Guthaben verschenkt an charlie;Guthaben verbraucht: 45 Cents (intern verrechnet);1;0,45;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293", "ExternalUserId0;2;33051820ExternalUserId0;18.05.2033;8;Guthaben erhalten von charlie;Guthaben verbraucht: 140 Cents (intern verrechnet);1;-1,40;2;2;30;0;18.05.2033;01.06.2033;24.04.2133;0;KA 14.07.17-18.05.33;0;;1112;0;8293"];
+        let should_lines = vec!["ExternalUserId0;2;70012420ExternalUserId0;24.01.1970;0;beer;Selbst gekauft;3;0,95;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;24.01.1970;1;soda;Selbst gekauft;19;0,85;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;24.01.1970;2;beer;Selbst gekauft;99;0,95;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;24.01.1970;3;Banana;Speziell abgestrichen;1;123,45;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;24.01.1970;4;beer;An alle ausgegeben;9;0,95;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;24.01.1970;5;soda;An alle ausgegeben;1234;0,85;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;24.01.1970;6;Guthaben erhalten von bob;Guthaben verbraucht: 25 Cents (intern verrechnet);1;0,2-5;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;24.01.1970;7;Guthaben verschenkt an charlie;Guthaben verbraucht: 45 Cents (intern verrechnet);1;0,45;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;24.01.1970;8;Guthaben erhalten von charlie;Guthaben verbraucht: 140 Cents (intern verrechnet);1;-1,40;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293"];
 
 
         let is_content = bill.format_as_sewobe_csv();
@@ -701,6 +707,14 @@ mod tests {
         }
 
     }
+
+    #[test]
+    fn date_format_works() {
+
+        let day_timestamp: chrono::DateTime<chrono::Utc> = chrono::Utc.timestamp(1523794067, 347000);
+        assert_eq!("15.04.2018".to_string(), day_timestamp.format(DATE_FORMAT_STRING).to_string())
+    }
+
 
     #[test]
     fn simple_general_csv_works() {

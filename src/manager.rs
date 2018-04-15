@@ -1441,12 +1441,13 @@ pub fn fill_backend_with_large_test_data(backend: &mut Backend) -> () {
 
     (*back).create_user("Gruin".to_string());
     (*back).create_user("Vall".to_string());
-    (*back).update_user(0, "Gruin".to_string(), true, true, None);
+    (*back).update_user(0, "Gruin".to_string(), true, true, Some("gruins-sewobe-id".to_string()));
     (*back).update_user(1, "Vall".to_string(), false, true, None);
     (*back).create_user("rad(i)".to_string());
 
     for i in 0..500 {
         (*back).create_user("GenUser #".to_string() + &i.to_string());
+        (*back).update_user(i + 3,  "GenUser #".to_string() + &i.to_string(), true, false, Some("#".to_string() + &i.to_string()));
     }
 
     (*back).create_item(

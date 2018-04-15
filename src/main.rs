@@ -29,6 +29,8 @@ extern crate persistent;
 #[macro_use]
 extern crate typescriptify_derive;
 extern crate typescriptify;
+extern crate zip;
+extern crate mime;
 
 use iron::prelude::*;
 use iron::{BeforeMiddleware, AfterMiddleware, typemap};
