@@ -34,6 +34,7 @@ pub struct ServerConfig {
     pub smpt_credentials_loginname: String,
     pub smpt_credentials_password: String,
     pub smtp_port: u16,
+    pub use_mock_data: bool,
 }
 
 
@@ -52,6 +53,7 @@ impl ServerConfig {
             smpt_credentials_loginname: "username".to_string(),
             smpt_credentials_password: "s3cr3t_p@ssw0rd".to_string(),
             smtp_port: 587,
+            use_mock_data: true,
         };
     }
 
@@ -69,6 +71,7 @@ impl ServerConfig {
             smpt_credentials_loginname: env::var("CERVISIA_SMTP_USERNAME").unwrap_or("username".to_string()),
             smpt_credentials_password: env::var("CERVISIA_SMTP_PASSWORD").unwrap_or("s3cr3t_p@ssw0rd".to_string()),
             smtp_port: get_env_u16("CERVISIA_SMTP_PORT", 587),
+            use_mock_data: get_env_bool("CERVISIA_USE_MOCK_DATA", Some(true)).unwrap_or(true),
         };
     }
 }
@@ -121,6 +124,7 @@ impl Default for ServerConfig {
             smpt_credentials_loginname: "username".to_string(),
             smpt_credentials_password: "s3cr3t_p@ssw0rd".to_string(),
             smtp_port: 587,
+            use_mock_data: true,
         };
     }
 }

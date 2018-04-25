@@ -196,7 +196,7 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
             std::fs::create_dir_all(db_file_dir);
             let mut b = rustix_bl::build_persistent_backend(db_file_dir);
             let c = b.reload().unwrap();
-            if c == 0 && fill {
+            if c == 0 && fill && config.use_mock_data {
                 fill_backend_with_large_test_data(&mut b); //TODO: replace for production
             }
             b.snapshot();
@@ -204,13 +204,15 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
         } else {
             let mut b = rustix_bl::build_transient_backend();
 
-            if fill {
+            if fill && config.use_mock_data {
                 fill_backend_with_large_test_data(&mut b); //TODO: replace for production
             }
             b
         });
 
-        import_users_into_store(&mut backend, load_users_json_file());
+        if (!config.use_mock_data) {
+            import_users_into_store(&mut backend, load_users_json_file());
+        }
 
         let state = State::<SharedBackend>::both(backend);
 
@@ -1768,6 +1770,7 @@ mod tests {
             smpt_credentials_loginname: String::new(),
             smpt_credentials_password: String::new(),
             smtp_port: 0,
+            use_mock_data: true,
         };
     }
 
