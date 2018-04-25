@@ -5,6 +5,7 @@ cervisia-server.iml
 *.mdb
 users.json
 users.json.tmp
+items.json
 snapshot.yaml
 bill_*.zip
 import_sewobe_users.js

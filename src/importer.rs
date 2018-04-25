@@ -16,6 +16,13 @@ pub struct ImportedUser {
     pub id: String,
 }
 
+#[derive(Default, Debug, Serialize, Deserialize, PartialEq)]
+pub struct ImportedItem {
+    pub name: String,
+    pub category: String,
+    pub price: u32,
+}
+
 fn get_user_by_name(store: &rustix_bl::datastore::Datastore, name: &str) -> Option<rustix_bl::datastore::User> {
     let v = store.users_searchhit_ids(name);
     if v.is_empty() {
@@ -23,6 +30,16 @@ fn get_user_by_name(store: &rustix_bl::datastore::Datastore, name: &str) -> Opti
     } else {
         let id = v.get(0).unwrap();
         return Some(store.users.get(id).unwrap().clone());
+    }
+}
+
+fn get_item_by_name(store: &rustix_bl::datastore::Datastore, name: &str) -> Option<rustix_bl::datastore::Item> {
+    let v = store.items_searchhit_ids(name);
+    if v.is_empty() {
+        return None;
+    } else {
+        let id = v.get(0).unwrap();
+        return Some(store.items.get(id).unwrap().clone());
     }
 }
 
@@ -45,6 +62,34 @@ pub fn import_users_into_store(backend: &mut rustix_bl::rustix_backend::RustixBa
     }
 }
 
+pub fn import_items_into_store(backend: &mut rustix_bl::rustix_backend::RustixBackend, items: Vec<ImportedItem>) -> () {
+    println!("Importing {} items into backend...", items.len());
+    for import_item in items {
+        //if nót already contained, add to list
+        let first_id: Option<rustix_bl::datastore::Item> = get_item_by_name(&backend.datastore, &import_item.name);
+        let cat : Option<String> = if import_item.category.trim().len() == 0 {None} else {Some(import_item.category.trim().to_string())} ;
+
+        if first_id.is_none() {
+            backend.apply(&rustix_event_shop::BLEvents::CreateItem {
+                itemname: import_item.name.to_string(),
+                price_cents: import_item.price,
+                category: cat,
+            });
+            println!("Created new item {}...", import_item.name);
+        } else {
+            backend.apply(&rustix_event_shop::BLEvents::UpdateItem {
+                item_id: first_id.unwrap().item_id,
+                itemname: import_item.name.to_string(),
+                price_cents: import_item.price,
+                category: cat,
+            });
+            println!("Updated item {}...", import_item.name);
+        }
+
+
+    }
+}
+
 pub fn load_users_json_file() -> Vec<ImportedUser> {
     let filename = "./users.json";
     let mut f_opt = File::open(filename);
@@ -60,5 +105,23 @@ pub fn load_users_json_file() -> Vec<ImportedUser> {
     }
 
     let mut json : Vec<ImportedUser> = serde_json::from_str(&contents).unwrap_or(Vec::new());
+    return json;
+}
+
+pub fn load_items_json_file() -> Vec<ImportedItem> {
+    let filename = "./items.json";
+    let mut f_opt = File::open(filename);
+    if f_opt.is_err() {
+        return Vec::new();
+    }
+    let mut f = f_opt.unwrap();
+
+    let mut contents = String::new();
+    let read_opt = f.read_to_string(&mut contents);
+    if read_opt.is_err() {
+        return Vec::new();
+    }
+
+    let mut json : Vec<ImportedItem> = serde_json::from_str(&contents).unwrap_or(Vec::new());
     return json;
 }

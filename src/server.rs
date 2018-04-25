@@ -212,6 +212,7 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
 
         if (!config.use_mock_data) {
             import_users_into_store(&mut backend, load_users_json_file());
+            import_items_into_store(&mut backend, load_items_json_file())
         }
 
         let state = State::<SharedBackend>::both(backend);
