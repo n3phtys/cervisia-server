@@ -146,7 +146,7 @@ Content-Disposition: attachment;
                 //let email = email_result.unwrap();
 
                 let attachments_size = string_size(attachments);
-                let email : SimpleSendableEmail = if !is_too_large_for_inline(attachments) {
+                let email : SimpleSendableEmail = if false /*&& !is_too_large_for_inline(attachments)*/ {
                     let email_string: String = format!("Subject: {}
 To: {}
 From: {}
