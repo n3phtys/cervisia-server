@@ -1,20 +1,20 @@
-use std;
-use std::fs::File;
-use std::io::Write;
-use std::io::Read;
 use config::*;
 use config;
-use notify::{RecommendedWatcher, DebouncedEvent, Watcher, RecursiveMode};
-use std::sync::mpsc::channel;
-use std::time::Duration;
-use rustix_bl;
 use iron;
-use toml;
-use std::io;
-use std::sync::{Arc, RwLock};
-use std::thread;
+use notify::{DebouncedEvent, RecommendedWatcher, RecursiveMode, Watcher};
+use rustix_bl;
 use server::Backend;
+use std;
 use std::env;
+use std::fs::File;
+use std::io;
+use std::io::Read;
+use std::io::Write;
+use std::sync::{Arc, RwLock};
+use std::sync::mpsc::channel;
+use std::thread;
+use std::time::Duration;
+use toml;
 
 
 #[derive(Debug, Deserialize, Clone)]

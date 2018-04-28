@@ -1,14 +1,13 @@
-
-use rustix_bl;
-use rustix_bl::rustix_event_shop;
-use manager::ServableRustixImpl;
 use manager::ServableRustix;
-use std::env;
-use std::fs::File;
-use serde_json;
-use std::io::prelude::*;
+use manager::ServableRustixImpl;
+use rustix_bl;
 use rustix_bl::datastore::DatastoreQueries;
 use rustix_bl::rustix_backend::WriteBackend;
+use rustix_bl::rustix_event_shop;
+use serde_json;
+use std::env;
+use std::fs::File;
+use std::io::prelude::*;
 
 #[derive(Default, Debug, Serialize, Deserialize, PartialEq)]
 pub struct ImportedUser {

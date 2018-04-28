@@ -1,17 +1,17 @@
+use rand::{Rng, SeedableRng, StdRng};
 use rustix_bl;
 use rustix_bl::*;
 use rustix_bl::datastore::*;
-use std::vec::*;
-use server;
-use server::RefreshedData;
-use std::collections::*;
-use serde_json;
-use std;
-use rustix_bl::rustix_event_shop;
-use std::sync::RwLock;
-use rand::{Rng, SeedableRng, StdRng};
 use rustix_bl::rustix_backend::*;
+use rustix_bl::rustix_event_shop;
+use serde_json;
+use server;
 use server::Backend;
+use server::RefreshedData;
+use std;
+use std::collections::*;
+use std::sync::RwLock;
+use std::vec::*;
 use typescriptify::TypeScriptifyTrait;
 
 #[derive(Serialize, Deserialize, TypeScriptify)]
@@ -1486,15 +1486,6 @@ pub fn fill_backend_with_large_test_data(backend: &mut Backend) -> () {
 
 #[cfg(test)]
 pub mod tests {
-    use serde_json;
-    use std;
-    use rustix_bl;
-    use rustix_bl::rustix_event_shop;
-    use std::sync::RwLock;
-    use manager::ParametersAll;
-    use rand::{Rng, SeedableRng, StdRng};
-    use rustix_bl::rustix_backend::*;
     use server::Backend;
-
     pub fn fill_not(backend: &mut Backend) -> () {}
 }

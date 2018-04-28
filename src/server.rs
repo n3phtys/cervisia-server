@@ -1127,7 +1127,7 @@ pub mod responsehandlers {
                         match parsed_body.limit_to_user {
                             Some(user_id) => {
                                 let subject = format!("Your Cervisia bill export on {}", Utc::now().format("%d.%m.%Y"));
-                                let body_cells = bill.format_as_personalized_documentation(user_id);
+                                let body_cells = bill.format_as_personalized_documentation(&user_id);
                                 //TODO: replace delimiter by making it configurable
 
                                 let mut lines: Vec<String> = Vec::new();
@@ -1143,7 +1143,7 @@ pub mod responsehandlers {
                                     hm
                                 };
 
-                                mail::send_mail(&parsed_body.email_address, &subject, "Your bill is attached to this mail as a CSV file", &attachments, conf).unwrap();
+                                mail::send_mail(&parsed_body.email_address, &subject, "Your bill is attached to this mail as a CSV file", &attachments, conf, &mail::two_numbers_to_string(parsed_body.timestamp_from, parsed_body.timestamp_to)).unwrap();
                             },
                             None => {
                                 let subject = format!("Cervisia bill export on {}", Utc::now().format("%d.%m.%Y"));
@@ -1173,7 +1173,7 @@ pub mod responsehandlers {
                                     hm
                                 };
 
-                                mail::send_mail(&parsed_body.email_address, &subject, "The bill is attached as two CSV files. One is to import into SEWOBE, the other is for internal tracking and contains additional information.", &attachments, conf).unwrap();
+                                mail::send_mail(&parsed_body.email_address, &subject, "The bill is attached as two CSV files. One is to import into SEWOBE, the other is for internal tracking and contains additional information.", &attachments, conf, &mail::two_numbers_to_string(parsed_body.timestamp_from, parsed_body.timestamp_to)).unwrap();
                             },
                         }
 

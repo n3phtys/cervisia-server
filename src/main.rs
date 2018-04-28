@@ -1,44 +1,42 @@
-
+extern crate chrono;
+extern crate config;
+extern crate iron;
 #[macro_use]
 extern crate lazy_static;
-extern crate iron;
-extern crate staticfile;
-extern crate time;
-extern crate rustix_bl;
+extern crate lettre;
 extern crate lettre_email;
 #[macro_use]
 extern crate log;
-extern crate simple_logger;
+extern crate mime;
 extern crate mount;
-extern crate lettre;
 extern crate native_tls;
-extern crate uuid;
 extern crate notify;
-extern crate config;
-extern crate toml;
+extern crate params;
+extern crate persistent;
+extern crate rand;
+extern crate reqwest;
+extern crate router;
+extern crate rustix_bl;
 extern crate serde;
-extern crate chrono;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
-extern crate reqwest;
-extern crate rand;
-extern crate params;
-extern crate router;
-extern crate persistent;
+extern crate simple_logger;
+extern crate staticfile;
+extern crate time;
+extern crate toml;
+extern crate typescriptify;
 #[macro_use]
 extern crate typescriptify_derive;
-extern crate typescriptify;
+extern crate uuid;
 extern crate zip;
-extern crate mime;
 
-use iron::prelude::*;
-use iron::{BeforeMiddleware, AfterMiddleware, typemap};
-use time::precise_time_ns;
-
-use iron::Iron;
-use server::*;
 use configuration::*;
+use iron::{AfterMiddleware, BeforeMiddleware, typemap};
+use iron::Iron;
+use iron::prelude::*;
+use server::*;
+use time::precise_time_ns;
 
 pub mod mail;
 

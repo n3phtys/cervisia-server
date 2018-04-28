@@ -1,24 +1,26 @@
-use std::io::{Seek, Write};
+use configuration::*;
+use lettre::{EmailAddress, EmailTransport, SimpleSendableEmail, SmtpTransport};
+use lettre;
+use lettre::SendableEmail;
+use lettre::smtp::authentication::{Credentials, Mechanism};
+use lettre::smtp::client::net::*;
+use lettre::smtp::ClientSecurity;
+use lettre::smtp::ConnectionReuseParameters;
+use lettre::smtp::extension::ClientId;
+use lettre::smtp::SUBMISSION_PORT;
+use lettre_email::*;
+use mime;
+use native_tls::TlsConnector;
+use std;
+use std::collections::hash_map::DefaultHasher;
 use std::fs::File;
+use std::hash::Hasher;
+use std::io::{Seek, Write};
+use std::path::Path;
+use time;
+use uuid::Uuid;
 use zip::result::ZipResult;
 use zip::write::{FileOptions, ZipWriter};
-use lettre::smtp::authentication::{Credentials, Mechanism};
-use lettre::smtp::SUBMISSION_PORT;
-use lettre::{SimpleSendableEmail, EmailTransport, EmailAddress, SmtpTransport};
-use lettre::smtp::extension::ClientId;
-use lettre::smtp::ClientSecurity;
-use lettre::smtp::client::net::*;
-use lettre::smtp::ConnectionReuseParameters;
-use lettre;
-use time;
-use native_tls::TlsConnector;
-use uuid::Uuid;
-use configuration::*;
-use lettre_email::*;
-use lettre::SendableEmail;
-use std::path::Path;
-use std;
-use mime;
 
 
 pub fn is_too_large_for_inline(attachments: &std::collections::HashMap<String, String>) -> bool {
@@ -35,11 +37,25 @@ pub fn string_size(attachments: &std::collections::HashMap<String, String>) -> u
     return x;
 }
 
-pub fn save_attachments_in_zip_file(attachments: &std::collections::HashMap<String, String>) -> String {
-    let timespec = time::get_time();
-    let mills: u64 =  timespec.sec as u64 + (timespec.nsec as f64 / 1000.0 / 1000.0 / 1000.0) as u64;
+pub fn hash_code(attachments: &std::collections::HashMap<String, String>) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    for (filename, filecontent) in attachments {
+        hasher.write(filename.as_bytes());
+        hasher.write(&filecontent.as_bytes());
+    }
+    return hasher.finish();
+}
 
-    let filename = format!("bill_{}.zip", mills);
+pub fn two_numbers_to_string(a: i64, b : i64) -> String {
+        return format!("{:x}_{:x}", a, b);
+}
+
+pub fn save_attachments_in_zip_file(attachments: &std::collections::HashMap<String, String>, zipfilename: &str) -> String {
+    //let timespec = time::get_time();
+    //let mills: u64 =  timespec.sec as u64 + (timespec.nsec as f64 / 1000.0 / 1000.0 / 1000.0) as u64;
+    //let hc = format!("{:x}", hash_code(attachments));
+
+    let filename = zipfilename.to_string();
     //should no execute on (Windows + )Debug
     if !cfg!(debug_assertions) {
 
@@ -64,7 +80,7 @@ fn create_zip_archive<T: Seek + Write>(buf: &mut T, attachments: &std::collectio
     Ok(())
 }
 
-pub fn send_mail(receiver_email: &str, subject: &str, body: &str, attachments: &std::collections::HashMap<String, String>, config: &ServerConfig) -> Result<lettre::smtp::response::Response, lettre::smtp::error::Error> {
+pub fn send_mail(receiver_email: &str, subject: &str, body: &str, attachments: &std::collections::HashMap<String, String>, config: &ServerConfig, zipfilename: &str) -> Result<lettre::smtp::response::Response, lettre::smtp::error::Error> {
 
 
     if true {
@@ -206,7 +222,7 @@ Content-Type: text/plain; charset=utf-8
 
                 } else {
 
-                    let zipfile = save_attachments_in_zip_file(attachments);
+                    let zipfile = save_attachments_in_zip_file(attachments, zipfilename);
 
                     let mimetype: mime::Mime = "application/zip".parse().unwrap();
 
@@ -260,7 +276,6 @@ Content-Type: text/plain; charset=utf-8
                     if !result_1.is_ok() {
                         println!("Error sending mail with zip attachment. Whole mail size would have been {} bytes", attachments_size);
                     }
-                    assert!(result_1.is_ok());
 // Explicitly close the SMTP transaction as we enabled connection reuse
                     mailer.close();
                     return result_1;
