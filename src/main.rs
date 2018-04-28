@@ -29,6 +29,7 @@ extern crate typescriptify;
 #[macro_use]
 extern crate typescriptify_derive;
 extern crate uuid;
+extern crate openssl_probe;
 extern crate zip;
 
 use configuration::*;
@@ -76,6 +77,7 @@ pub fn hello_world(_: &mut Request) -> IronResult<Response> {
 
 
 fn main() {
+    openssl_probe::init_ssl_cert_env_vars();
     simple_logger::init().unwrap();
     let config = ServerConfig::from_env();
 
