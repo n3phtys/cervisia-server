@@ -548,7 +548,7 @@ pub mod responsehandlers {
 
                 let mut item_ids: Vec<u32> = Vec::new();
                 for kv in parsed_body.items {
-                    for i in 1..kv.value {
+                    for i in 0..kv.value {
                         item_ids.push(kv.key);
                     }
                 }
