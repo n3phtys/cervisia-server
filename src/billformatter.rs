@@ -701,9 +701,9 @@ mod tests {
 
         let is_all: String = is_lines.join("\n");
 
-        println!("Sewobe CSV Test Output:\n{}", is_all);
+        info!("Sewobe CSV Test Output:\n{}", is_all);
 
-        println!("Lines should:\n{:?}\nvs lines is:\n{:?}", should_lines, is_lines);
+        info!("Lines should:\n{:?}\nvs lines is:\n{:?}", should_lines, is_lines);
 
 
         assert!(is_lines[0].contains("beer"));

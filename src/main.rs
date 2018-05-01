@@ -21,7 +21,7 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
-extern crate simple_logger;
+extern crate env_logger;
 extern crate staticfile;
 extern crate time;
 extern crate toml;
@@ -38,6 +38,8 @@ use iron::Iron;
 use iron::prelude::*;
 use server::*;
 use time::precise_time_ns;
+use std::env;
+use env_logger::{Builder, Target};
 
 pub mod mail;
 
@@ -66,7 +68,7 @@ impl BeforeMiddleware for ResponseTime {
 impl AfterMiddleware for ResponseTime {
     fn after(&self, req: &mut Request, res: Response) -> IronResult<Response> {
         let delta = precise_time_ns() - *req.extensions.get::<ResponseTime>().unwrap();
-        println!("Request took: {} ms", (delta as f64) / 1000000.0);
+        info!("Request took: {} ms", (delta as f64) / 1000000.0);
         Ok(res)
     }
 }
@@ -78,10 +80,20 @@ pub fn hello_world(_: &mut Request) -> IronResult<Response> {
 
 fn main() {
     openssl_probe::init_ssl_cert_env_vars();
-    simple_logger::init().unwrap();
+    env_logger::init();
+
+    /*
+    let mut builder = Builder::new();
+    builder.target(Target::Stdout);
+    if env::var("RUST_LOG").is_ok() {
+        builder.parse(&env::var("RUST_LOG").unwrap());
+    }
+    builder.init();*/
+
+
     let config = ServerConfig::from_env();
 
-    println!("Found following config: {:?}", &config);
+    info!("Found following config: {:?}", &config);
 
     let listener = execute_cervisia_server(&config, None, None);
 }

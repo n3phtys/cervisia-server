@@ -55,7 +55,7 @@ pub fn save_attachments_in_zip_file(attachments: &std::collections::HashMap<Stri
     //let mills: u64 =  timespec.sec as u64 + (timespec.nsec as f64 / 1000.0 / 1000.0 / 1000.0) as u64;
     //let hc = format!("{:x}", hash_code(attachments));
 
-    let filename = zipfilename.to_string();
+    let filename = format!("bill_{}.zip", zipfilename.to_string());
     //should no execute on (Windows + )Debug
     if !cfg!(debug_assertions) {
 
@@ -88,7 +88,7 @@ pub fn send_mail(receiver_email: &str, subject: &str, body: &str, attachments: &
         //implement attachments as multipart/mixed as in: https://github.com/lettre/lettre/issues/201
 
 
-        //print out info in any case
+        //write out info in any case
         //let receivers: String = receiver_emails.clone().into_iter().map(|email| email.to_string()).fold("".to_string(), |acc,b| acc + &b);
         //warn!("Trying to send mail with to = {} :", receivers);
         //warn!("Subject: {}", subject.to_string());
@@ -109,7 +109,7 @@ pub fn send_mail(receiver_email: &str, subject: &str, body: &str, attachments: &
 
                 let mut email_builder = SimpleEmail::default();
 
-                println!("Building email begin");
+                info!("Building email begin");
 
 
                 let boundary = "XXXXboundary";
@@ -123,7 +123,7 @@ pub fn send_mail(receiver_email: &str, subject: &str, body: &str, attachments: &
                 let mut attachment_blocks: String = "".to_string();
 
                 for (filename, filecontent) in attachments {
-                    //TODO: assert that filename is legit
+                    //TODO: require that filename is legit
 
                     attachment_blocks = attachment_blocks + &format!("--{}
 Content-Type: text/plain; charset=utf-8
@@ -140,8 +140,6 @@ Content-Disposition: attachment;
 
 
 
-                //let email_result = email_builder.into_email();
-                //println!("Building email unwrap: {:?}", email_result);
 
                 //let email = email_result.unwrap();
 
@@ -178,7 +176,7 @@ Content-Type: text/plain; charset=utf-8
 
 
 
-                    println!("Trying to send email: {}", std::str::from_utf8(*(email.message())).unwrap());
+                    info!("Trying to send email: {}", std::str::from_utf8(*(email.message())).unwrap());
 
                     let tls: ClientTlsParameters = {
                         let mut tls_builder = TlsConnector::builder().unwrap();
@@ -205,11 +203,11 @@ Content-Type: text/plain; charset=utf-8
                         .connection_reuse(ConnectionReuseParameters::ReuseUnlimited).build();
 
                     let result_1 = mailer.send(&email);
-                    println!("Sending email result: {:?}", result_1);
+                    info!("Sending email result: {:?}", result_1);
                     if !result_1.is_ok() {
-                        println!("Error sending mail. Whole mail size was {}", attachments_size);
+                        error!("Error sending mail. Whole mail size was {}", attachments_size);
                     }
-                    assert!(result_1.is_ok());
+
 // Explicitly close the SMTP transaction as we enabled connection reuse
                     mailer.close();
                     return result_1;
@@ -244,7 +242,7 @@ Content-Type: text/plain; charset=utf-8
 
 
 
-                    println!("Trying to send email: {}", std::str::from_utf8(*(email.message())).unwrap());
+                    info!("Trying to send email: {}", std::str::from_utf8(*(email.message())).unwrap());
 
                     let tls: ClientTlsParameters = {
                         let mut tls_builder = TlsConnector::builder().unwrap();
@@ -270,11 +268,11 @@ Content-Type: text/plain; charset=utf-8
                         // Enable connection reuse
                         .connection_reuse(ConnectionReuseParameters::ReuseUnlimited).build();
 
-                    println!("trying to send email: {:?}", &email);
+                    info!("trying to send email: {:?}", &email);
                     let result_1 = mailer.send(&email);
-                    println!("Sending email result: {:?}", result_1);
+                    info!("Sending email result: {:?}", result_1);
                     if !result_1.is_ok() {
-                        println!("Error sending mail with zip attachment. Whole mail size would have been {} bytes", attachments_size);
+                        error!("Error sending mail with zip attachment. Whole mail size would have been {} bytes", attachments_size);
                     }
 // Explicitly close the SMTP transaction as we enabled connection reuse
                     mailer.close();

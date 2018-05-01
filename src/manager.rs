@@ -442,7 +442,7 @@ impl ServableRustix for ServableRustixImpl {
             AllUsers(param) => {
                 let xs = backend.datastore.users_searchhit_ids(&param.count_pars.searchterm);
 
-                println!("AllUsersQuery with total store =\n{:?}\nvs\n{:?}", backend.datastore.users, xs);
+                debug!("AllUsersQuery with total store =\n{:?}\nvs\n{:?}", backend.datastore.users, xs);
 
 
                 let mut v: Vec<rustix_bl::datastore::User> = Vec::new();
@@ -526,7 +526,43 @@ impl ServableRustix for ServableRustixImpl {
                 let xs = backend.datastore.personal_log_filtered(param.user_id, three_months_ago, now);
 
                 let mut hm: HashMap<String, u32> = HashMap::new();
-                let mut cost = 0u32;
+                let mut cost = 0u32; // is a zero
+
+
+                for y  in &backend.datastore.personal_log_filtered(param.user_id, 0, now) {
+                    let x : &rustix_bl::datastore::Purchase = y;
+                    match x {
+                        &rustix_bl::datastore::Purchase::SpecialPurchase{
+                            ref unique_id,
+                            ref timestamp_epoch_millis,
+                            ref special_name,
+                            ref specialcost,
+                            ref consumer_id,
+                        } => {
+                            cost += specialcost.unwrap_or(0);
+                        },
+                        &rustix_bl::datastore::Purchase::SimplePurchase  {
+                            ref unique_id,
+                            ref timestamp_epoch_millis,
+                            ref item_id,
+                            ref consumer_id,
+                        } => {
+                            //get price and add
+                            cost += backend.datastore.items.get(x.get_item_id()).unwrap().cost_cents;
+                        },
+                        &rustix_bl::datastore::Purchase::FFAPurchase {
+                            ref unique_id,
+                            ref timestamp_epoch_millis,
+                            ref item_id,
+                            ref freeby_id,
+                            ref donor,
+                        } => {
+                            //get price and add
+                            cost += backend.datastore.items.get(x.get_item_id()).unwrap().cost_cents;
+                        },
+                    }
+                }
+
 
                 for x in xs {
                     if backend.datastore.users.get(x.get_user_id()).is_some() && x.has_item_id() && backend.datastore.items.get(x.get_item_id()).is_some() {
@@ -644,15 +680,15 @@ impl ServableRustix for ServableRustixImpl {
                     results: xs,
                 };
 
-                println!("Serializing");
+                debug!("Serializing");
 
                 let a = &serde_json::to_string(&result)?;
 
-                println!("Result a = {:?}", a);
+                debug!("Result a = {:?}", a);
 
                 let b = serde_json::from_str(a)?;
 
-                println!("Result b = {:?}", b);
+                debug!("Result b = {:?}", b);
 
                 return Ok(b);
             },
@@ -750,15 +786,15 @@ impl ServableRustix for ServableRustixImpl {
                     res
                 };
 
-                println!("Serializing");
+                debug!("Serializing");
 
                 let a = &serde_json::to_string(&result)?;
 
-                println!("Result a = {:?}", a);
+                debug!("Result a = {:?}", a);
 
                 let b = serde_json::from_str(a)?;
 
-                println!("Result b = {:?}", b);
+                debug!("Result b = {:?}", b);
 
                 return Ok(b);
             },
@@ -1219,10 +1255,10 @@ impl ServableRustix for ServableRustixImpl {
             },
             a @ rustix_event_shop::BLEvents::FinalizeBill { .. } => {
 
-                println!("Trying to finalize bill");
+                info!("Trying to finalize bill");
                 let _b = &mut backend.apply(&a);
 
-                println!("_b = {}", _b);
+                info!("_b = {}", _b);
 
                 //refresh bills
                 //refresh incoming

@@ -9,7 +9,7 @@ iron = "0.5"
 rustix-bl = { git = "https://github.com/n3phtys/rustix-bl", branch = "master" }
 time = "*"
 staticfile = "0.4"
-simple_logger = "*"
+env_logger = "*"
 mount = "0.3"
 log = "*"
 chrono = "*"

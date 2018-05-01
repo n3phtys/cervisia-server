@@ -226,7 +226,7 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     }
 
     let url = format!("{}:{}", config.host, config.server_port);
-    println!("Starting server under host and port = {}", &url);
+    debug!("Starting server under host and port = {}", &url);
     let mut serv = Iron::new(mount).http(url).unwrap();
     return serv;
 }
@@ -390,7 +390,7 @@ pub mod responsehandlers {
 
     pub fn undo_purchase_by_user(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
-        println!("posted_body = {:?}", posted_body);
+        debug!("posted_body = {:?}", posted_body);
         let parsed_body: UndoPurchase = serde_json::from_str(&posted_body).unwrap();
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
@@ -450,7 +450,7 @@ pub mod responsehandlers {
 
     pub fn undo_purchase_by_admin(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
-        println!("posted_body = {:?}", posted_body);
+        debug!("posted_body = {:?}", posted_body);
         let parsed_body: UndoPurchase = serde_json::from_str(&posted_body).unwrap();
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
@@ -497,7 +497,7 @@ pub mod responsehandlers {
 
     pub fn simple_purchase(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
-        println!("posted_body = {:?}", posted_body);
+        debug!("posted_body = {:?}", posted_body);
         let parsed_body: MakeSimplePurchase = serde_json::from_str(&posted_body).unwrap();
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
@@ -514,14 +514,17 @@ pub mod responsehandlers {
                 });
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                        error_message: None,
-                        is_success: true,
-                        content: Some(SuccessContent {
-                            timestamp_epoch_millis: current_time_millis(),
-                            refreshed_data: sux,
-                        }),
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        log_purchase(&dat,parsed_body.item_id, Some(parsed_body.user_id));
+                        return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                            error_message: None,
+                            is_success: true,
+                            content: Some(SuccessContent {
+                                timestamp_epoch_millis: current_time_millis(),
+                                refreshed_data: sux,
+                            }),
+                        }).unwrap())))
+                    },
                     Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
                         error_message: Some(err.description().to_string()),
                         is_success: false,
@@ -533,10 +536,32 @@ pub mod responsehandlers {
         };
     }
 
+    fn log_purchase(dat : &Backend, item_id: u32, user_id: Option<u32>) {
+        let item_opt = dat.datastore.items.get(&item_id);
+        if item_opt.is_some() {
+            let item = item_opt.unwrap();
+            match user_id {
+                Some(uid) => {
+                    let user_opt = dat.datastore.users.get(&uid);
+                    if (user_opt.is_some()) {
+                        let user = user_opt.unwrap();
+                        info!("Purchase by {} (id = {}): item {} with cost of {} cents", user.username, user.user_id, item.name, item.cost_cents );
+                    } else {
+                        error!("Cannot find user with user_id = {}", uid);
+                    }
+                },
+                None => {
+                    info!("FFA Purchase with item of name {} with cost of {} cents" , item.name, item.cost_cents);
+                },
+            }
+        } else{
+            error!("Cannot find item with item_id = {}", item_id);
+        }
+    }
 
     pub fn cart_purchase(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
-        println!("posted_body = {:?}", posted_body);
+        debug!("posted_body = {:?}", posted_body);
         let parsed_body: MakeCartPurchase = serde_json::from_str(&posted_body).unwrap();
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
@@ -556,21 +581,26 @@ pub mod responsehandlers {
                 let event = rustix_bl::rustix_event_shop::BLEvents::MakeShoppingCartPurchase {
                     user_id: parsed_body.user_id,
                     specials: parsed_body.specials,
-                    item_ids: item_ids,
+                    item_ids: item_ids.clone(),
                     timestamp: current_time_millis(),
                 };
 
                 let result = ServableRustixImpl::check_apply_write(&mut dat, param, event);
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                        error_message: None,
-                        is_success: true,
-                        content: Some(SuccessContent {
-                            timestamp_epoch_millis: current_time_millis(),
-                            refreshed_data: sux,
-                        }),
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        for item_id in item_ids {
+                            log_purchase(&dat,item_id, Some(parsed_body.user_id));
+                        }
+                        return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                            error_message: None,
+                            is_success: true,
+                            content: Some(SuccessContent {
+                                timestamp_epoch_millis: current_time_millis(),
+                                refreshed_data: sux,
+                            }),
+                        }).unwrap())))
+                    },
                     Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
                         error_message: Some(err.description().to_string()),
                         is_success: false,
@@ -586,7 +616,7 @@ pub mod responsehandlers {
 
     pub fn ffa_purchase(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
-        println!("posted_body = {:?}", posted_body);
+        debug!("posted_body = {:?}", posted_body);
         let parsed_body: MakeFFAPurchase = serde_json::from_str(&posted_body).unwrap();
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
@@ -605,14 +635,17 @@ pub mod responsehandlers {
                 let result = ServableRustixImpl::check_apply_write(&mut dat, param, event);
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                        error_message: None,
-                        is_success: true,
-                        content: Some(SuccessContent {
-                            timestamp_epoch_millis: current_time_millis(),
-                            refreshed_data: sux,
-                        }),
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        log_purchase(&dat,parsed_body.item_id, None);
+                        return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
+                            error_message: None,
+                            is_success: true,
+                            content: Some(SuccessContent {
+                                timestamp_epoch_millis: current_time_millis(),
+                                refreshed_data: sux,
+                            }),
+                        }).unwrap())))
+                    },
                     Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
                         error_message: Some(err.description().to_string()),
                         is_success: false,
@@ -628,7 +661,7 @@ pub mod responsehandlers {
 
     pub fn create_budget_freeby(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
-        println!("posted_body = {:?}", posted_body);
+        debug!("posted_body = {:?}", posted_body);
         let parsed_body: CreateBudgetGiveout = serde_json::from_str(&posted_body).unwrap();
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
@@ -672,7 +705,7 @@ pub mod responsehandlers {
 
     pub fn create_count_freeby(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
-        println!("posted_body = {:?}", posted_body);
+        debug!("posted_body = {:?}", posted_body);
         let parsed_body: CreateCountGiveout = serde_json::from_str(&posted_body).unwrap();
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
@@ -718,7 +751,7 @@ pub mod responsehandlers {
 
     pub fn create_ffa_freeby(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
-        println!("posted_body = {:?}", posted_body);
+        debug!("posted_body = {:?}", posted_body);
         let parsed_body: CreateFreeForAll = serde_json::from_str(&posted_body).unwrap();
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
@@ -762,7 +795,7 @@ pub mod responsehandlers {
 
     pub fn add_user(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
-        println!("posted_body = {:?}", posted_body);
+        debug!("posted_body = {:?}", posted_body);
         let parsed_body: CreateUser = serde_json::from_str(&posted_body).unwrap();
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
@@ -799,7 +832,7 @@ pub mod responsehandlers {
 
     pub fn delete_user(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
-        println!("posted_body = {:?}", posted_body);
+        debug!("posted_body = {:?}", posted_body);
         let parsed_body: DeleteUser = serde_json::from_str(&posted_body).unwrap();
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
@@ -836,7 +869,7 @@ pub mod responsehandlers {
 
     pub fn delete_item(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
-        println!("posted_body = {:?}", posted_body);
+        debug!("posted_body = {:?}", posted_body);
         let parsed_body: DeleteItem = serde_json::from_str(&posted_body).unwrap();
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
@@ -872,7 +905,7 @@ pub mod responsehandlers {
 
     pub fn update_user(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
-        println!("posted_body = {:?}", posted_body);
+        debug!("posted_body = {:?}", posted_body);
         let parsed_body: UpdateUser = serde_json::from_str(&posted_body).unwrap();
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
@@ -912,7 +945,7 @@ pub mod responsehandlers {
 
     pub fn add_item(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
-        println!("posted_body = {:?}", posted_body);
+        debug!("posted_body = {:?}", posted_body);
         let parsed_body: CreateItem = serde_json::from_str(&posted_body).unwrap();
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
@@ -950,7 +983,7 @@ pub mod responsehandlers {
 
     pub fn create_bill(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
-        println!("posted_body = {:?}", posted_body);
+        debug!("posted_body = {:?}", posted_body);
         let parsed_body: CreateBill = serde_json::from_str(&posted_body).unwrap();
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
@@ -989,7 +1022,7 @@ pub mod responsehandlers {
 
     pub fn update_bill(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
-        println!("posted_body = {:?}", posted_body);
+        debug!("posted_body = {:?}", posted_body);
         let parsed_body: EditBill = serde_json::from_str(&posted_body).unwrap();
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
@@ -1029,7 +1062,7 @@ pub mod responsehandlers {
 
     pub fn delete_bill(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
-        println!("posted_body = {:?}", posted_body);
+        debug!("posted_body = {:?}", posted_body);
         let parsed_body: DeleteUnfinishedBill = serde_json::from_str(&posted_body).unwrap();
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
@@ -1066,7 +1099,7 @@ pub mod responsehandlers {
 
     pub fn finalize_bill(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
-        println!("posted_body = {:?}", posted_body);
+        debug!("posted_body = {:?}", posted_body);
         let parsed_body: FinalizeBill = serde_json::from_str(&posted_body).unwrap();
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
@@ -1103,7 +1136,7 @@ pub mod responsehandlers {
 
     pub fn export_bill(req: &mut iron::request::Request, conf: &configuration::ServerConfig) -> IronResult<Response> {
         let posted_body = extract_body(req);
-        println!("posted_body = {:?}", posted_body);
+        debug!("posted_body = {:?}", posted_body);
         let parsed_body: ExportBill = serde_json::from_str(&posted_body).unwrap();
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
@@ -1201,7 +1234,7 @@ pub mod responsehandlers {
 
     pub fn set_special_price(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
-        println!("posted_body = {:?}", posted_body);
+        debug!("posted_body = {:?}", posted_body);
         let parsed_body: SetPriceForSpecial = serde_json::from_str(&posted_body).unwrap();
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
@@ -1238,7 +1271,7 @@ pub mod responsehandlers {
 
     pub fn update_item(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
-        println!("posted_body = {:?}", posted_body);
+        debug!("posted_body = {:?}", posted_body);
         let parsed_body: UpdateItem = serde_json::from_str(&posted_body).unwrap();
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
@@ -1487,7 +1520,7 @@ pub mod responsehandlers {
 
                 let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::Bills(param));
 
-                println!("Bills are queried with result = {:?}", result);
+                debug!("Bills are queried with result = {:?}", result);
 
                 match result {
                     Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
@@ -1514,7 +1547,7 @@ pub mod responsehandlers {
 
                 let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::BillDetails(param));
 
-                println!("Bill details are queried with result = {:?}", result);
+                debug!("Bill details are queried with result = {:?}", result);
 
                 match result {
                     Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
@@ -1600,7 +1633,7 @@ pub fn execute_cervisia_server(with_config: &ServerConfig,
 
     let mut server = build_server(with_config, backend);
 
-    println!("Having built server");
+    info!("Having built server");
 
 
     return server;
@@ -1683,15 +1716,15 @@ pub trait WriteApplicator {
 pub fn blocking_http_get_call(url: &str) -> Result<String, reqwest::Error> {
     let mut res = reqwest::get(url)?;
 
-    println!("Status: {}", res.status());
-    println!("Headers:\n{}", res.headers());
+    debug!("Status: {}", res.status());
+    debug!("Headers:\n{}", res.headers());
 
     let mut s: String = "".to_string();
     let size = res.read_to_string(&mut s);
 
-    println!("Body:\n{}", s);
+    debug!("Body:\n{}", s);
 
-    println!("\n\nDone.");
+    debug!("\n\nDone.");
     return Ok(s);
 }
 
@@ -1703,15 +1736,15 @@ pub fn blocking_http_post_call<T: serde::ser::Serialize>(url: &str, content: &T)
         .send()?;
 
 
-    println!("Status: {}", res.status());
-    println!("Headers:\n{}", res.headers());
+    debug!("Status: {}", res.status());
+    debug!("Headers:\n{}", res.headers());
 
     let mut s: String = "".to_string();
     let size = res.read_to_string(&mut s);
 
-    println!("Body:\n{}", s);
+    debug!("Body:\n{}", s);
 
-    println!("\n\nDone.");
+    debug!("\n\nDone.");
     return Ok(s);
 }
 
@@ -1930,7 +1963,6 @@ mod tests {
         assert_eq!(parsedjson.error_message, None);
         assert!(parsedjson.content.is_some());
         let unpacked = parsedjson.content.unwrap();
-        //println!("untracked = {:?}", unpacked);
         assert!(unpacked.refreshed_data.AllUsers.as_object().unwrap().get("results").unwrap().as_array().is_some());
         assert_eq!(unpacked.refreshed_data.AllUsers.as_object().unwrap().get("results").unwrap().as_array().unwrap().len(), 54);
 
