@@ -90,10 +90,11 @@ fn main() {
     }
     builder.init();*/
 
-
+    
     let config = ServerConfig::from_env();
 
     info!("Found following config: {:?}", &config);
 
     let listener = execute_cervisia_server(&config, None, None);
+
 }

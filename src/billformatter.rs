@@ -300,7 +300,7 @@ impl SewobeCSVLine {
 
     fn fmt(&self) -> Vec<String> {
         vec![
-            self.external_user_id.to_string(), if self.use_r_vs_g { "2".to_string() } else { "1".to_string() }, self.bill_external_id.to_string(), self.bill_date.format(DATE_FORMAT_STRING).to_string(), self.position_index.to_string(), self.position_name.to_string(), self.position_description.to_string(), self.position_count.to_string(), cents_to_currency_string(self.price_per_unit_cents), if self.use_inbox {"2".to_string()} else {"1".to_string()}, if self.receive_mail {"2".to_string()} else {"1".to_string()}, self.payment_target_days.to_string(), self.sepa_interval.to_string(), self.bill_date_sent.format(DATE_FORMAT_STRING).to_string(), self.bill_date_late.format(DATE_FORMAT_STRING).to_string(), self.position_ends_date.format(DATE_FORMAT_STRING).to_string(), self.tax_rate.to_string(), self.description.to_string(), if self.is_not_donation {"0".to_string()} else {"1".to_string()}, self.donation_remark.to_string(), self.billkeeping_account.to_string(), self.tax_rate.to_string(), self.subaccount.to_string()
+            self.external_user_id.to_string(), if self.use_r_vs_g { "2".to_string() } else { "1".to_string() }, self.bill_external_id.to_string(), self.bill_name.to_string(), self.bill_date.format(DATE_FORMAT_STRING).to_string(), self.position_index.to_string(), self.position_name.to_string(), self.position_description.to_string(), self.position_count.to_string(), cents_to_currency_string(self.price_per_unit_cents), if self.use_inbox {"2".to_string()} else {"1".to_string()}, if self.receive_mail {"2".to_string()} else {"1".to_string()}, self.payment_target_days.to_string(), self.sepa_interval.to_string(), self.bill_date_sent.format(DATE_FORMAT_STRING).to_string(), self.bill_date_late.format(DATE_FORMAT_STRING).to_string(), self.position_ends_date.format(DATE_FORMAT_STRING).to_string(), self.tax_rate.to_string(), self.description.to_string(), if self.is_not_donation {"0".to_string()} else {"1".to_string()}, self.donation_remark.to_string(), self.billkeeping_account.to_string(), self.tax_rate.to_string(), self.subaccount.to_string()
         ]
     }
 }
@@ -690,7 +690,7 @@ mod tests {
         ];
 
 
-        let should_lines = vec!["ExternalUserId0;2;70012420ExternalUserId0;24.01.1970;0;beer;Selbst gekauft;3;0,95;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;24.01.1970;1;soda;Selbst gekauft;19;0,85;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;24.01.1970;2;beer;Selbst gekauft;99;0,95;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;24.01.1970;3;Banana;Speziell abgestrichen;1;123,45;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;24.01.1970;4;beer;An alle ausgegeben;9;0,95;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;24.01.1970;5;soda;An alle ausgegeben;1234;0,85;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;24.01.1970;6;Guthaben erhalten von bob;Guthaben verbraucht: 25 Cents (intern verrechnet);1;0,2-5;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;24.01.1970;7;Guthaben verschenkt an charlie;Guthaben verbraucht: 45 Cents (intern verrechnet);1;0,45;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;24.01.1970;8;Guthaben erhalten von charlie;Guthaben verbraucht: 140 Cents (intern verrechnet);1;-1,40;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293"];
+        let should_lines = vec!["ExternalUserId0;2;70012420ExternalUserId0;Kantinenabrechnung 01/70;24.01.1970;0;beer;Selbst gekauft;3;0,95;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;Kantinenabrechnung 01/70;24.01.1970;1;soda;Selbst gekauft;19;0,85;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;Kantinenabrechnung 01/70;24.01.1970;2;beer;Selbst gekauft;99;0,95;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;Kantinenabrechnung 01/70;24.01.1970;3;Banana;Speziell abgestrichen;1;123,45;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;Kantinenabrechnung 01/70;24.01.1970;4;beer;An alle ausgegeben;9;0,95;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;Kantinenabrechnung 01/70;24.01.1970;5;soda;An alle ausgegeben;1234;0,85;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;Kantinenabrechnung 01/70;24.01.1970;6;Guthaben erhalten von bob;Guthaben verbraucht: 25 Cents (intern verrechnet);1;0,2-5;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;Kantinenabrechnung 01/70;24.01.1970;7;Guthaben verschenkt an charlie;Guthaben verbraucht: 45 Cents (intern verrechnet);1;0,45;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;Kantinenabrechnung 01/70;24.01.1970;8;Guthaben erhalten von charlie;Guthaben verbraucht: 140 Cents (intern verrechnet);1;-1,40;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293"];
 
 
         let is_content = bill.format_as_sewobe_csv();
@@ -705,6 +705,9 @@ mod tests {
 
         info!("Lines should:\n{:?}\nvs lines is:\n{:?}", should_lines, is_lines);
 
+
+
+        assert_eq!(is_header.len(), is_content[0].len());
 
         assert!(is_lines[0].contains("beer"));
         assert!(should_lines[0].contains("beer"));
@@ -889,6 +892,8 @@ mod tests {
 
 
         let is_lines = bill.format_as_documentation();
+
+
 
 
         assert_eq!(should_lines, is_lines);
