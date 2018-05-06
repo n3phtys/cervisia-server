@@ -168,10 +168,18 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
         let config = config.clone();
         router.post("/bill/export", move |req: &mut iron::request::Request| {
             let conf = config.clone();
-            export_bill(req, &conf )
+            export_bill(req, &conf)
         }, "exportbill");
-
     }
+
+    {
+        let config = config.clone();
+        router.post("/admin/checkpassword", move |req: &mut iron::request::Request| {
+            let conf = config.clone();
+            check_password(req, &conf)
+        }, "checkpassword");
+    }
+
 
     router.post("/purchases/special/setprice", set_special_price, "setspecialprice");
 
@@ -190,7 +198,7 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
         let fill = backend.is_none();
 
 
-        let mut backend = backend.unwrap_or( if config.use_persistence {
+        let mut backend = backend.unwrap_or(if config.use_persistence {
             //mkdir for database
             let db_file_dir = std::path::Path::new(&config.persistence_file_path);
             std::fs::create_dir_all(db_file_dir);
@@ -275,6 +283,7 @@ pub mod responsehandlers {
         pub user_id: u32,
         pub item_id: u32,
     }
+
 
     #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct KeyValue {
@@ -405,9 +414,9 @@ pub mod responsehandlers {
                 if match dat.datastore.get_purchase_timestamp(parsed_body.unique_id) {
                     Some(ref t) => {
                         cur < t + (30i64 * 1000i64)
-                    },
+                    }
                     None => false,
-                }  {
+                } {
                     return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
                         error_message: Some("A user may only undo a purchase before 30s have passed".to_string()),
                         is_success: false,
@@ -458,11 +467,13 @@ pub mod responsehandlers {
 
         match query_str {
             Some(json_query) => {
+                debug!("json queried");
                 let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
 
                 let cur = current_time_millis();
 
-                if dat.datastore.get_purchase_timestamp(parsed_body.unique_id).is_some() {
+                if dat.datastore.get_purchase_timestamp(parsed_body.unique_id).is_none() {
+                    debug!("purchase not found");
                     return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
                         error_message: Some("Cannot find purchase to delete (the purchase may have already been finalized into a bill, undoing such a purchase is not possible)".to_string()),
                         is_success: false,
@@ -495,6 +506,11 @@ pub mod responsehandlers {
     }
 
 
+    pub fn check_password(req: &mut iron::request::Request, conf: &configuration::ServerConfig) -> IronResult<Response> {
+        let posted_body: String = extract_body(req);
+        return Ok(Response::with((iron::status::Ok, serde_json::to_string(&( posted_body.trim() == conf.admin_password.trim())).unwrap())));
+    }
+
     pub fn simple_purchase(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
         debug!("posted_body = {:?}", posted_body);
@@ -515,7 +531,7 @@ pub mod responsehandlers {
 
                 match result {
                     Ok(sux) => {
-                        log_purchase(&dat,parsed_body.item_id, Some(parsed_body.user_id));
+                        log_purchase(&dat, parsed_body.item_id, Some(parsed_body.user_id));
                         return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
                             error_message: None,
                             is_success: true,
@@ -523,8 +539,8 @@ pub mod responsehandlers {
                                 timestamp_epoch_millis: current_time_millis(),
                                 refreshed_data: sux,
                             }),
-                        }).unwrap())))
-                    },
+                        }).unwrap())));
+                    }
                     Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
                         error_message: Some(err.description().to_string()),
                         is_success: false,
@@ -536,7 +552,7 @@ pub mod responsehandlers {
         };
     }
 
-    fn log_purchase(dat : &Backend, item_id: u32, user_id: Option<u32>) {
+    fn log_purchase(dat: &Backend, item_id: u32, user_id: Option<u32>) {
         let item_opt = dat.datastore.items.get(&item_id);
         if item_opt.is_some() {
             let item = item_opt.unwrap();
@@ -545,16 +561,16 @@ pub mod responsehandlers {
                     let user_opt = dat.datastore.users.get(&uid);
                     if (user_opt.is_some()) {
                         let user = user_opt.unwrap();
-                        info!("Purchase by {} (id = {}): item {} with cost of {} cents", user.username, user.user_id, item.name, item.cost_cents );
+                        info!("Purchase by {} (id = {}): item {} with cost of {} cents", user.username, user.user_id, item.name, item.cost_cents);
                     } else {
                         error!("Cannot find user with user_id = {}", uid);
                     }
-                },
+                }
                 None => {
-                    info!("FFA Purchase with item of name {} with cost of {} cents" , item.name, item.cost_cents);
-                },
+                    info!("FFA Purchase with item of name {} with cost of {} cents", item.name, item.cost_cents);
+                }
             }
-        } else{
+        } else {
             error!("Cannot find item with item_id = {}", item_id);
         }
     }
@@ -590,7 +606,7 @@ pub mod responsehandlers {
                 match result {
                     Ok(sux) => {
                         for item_id in item_ids {
-                            log_purchase(&dat,item_id, Some(parsed_body.user_id));
+                            log_purchase(&dat, item_id, Some(parsed_body.user_id));
                         }
                         return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
                             error_message: None,
@@ -599,8 +615,8 @@ pub mod responsehandlers {
                                 timestamp_epoch_millis: current_time_millis(),
                                 refreshed_data: sux,
                             }),
-                        }).unwrap())))
-                    },
+                        }).unwrap())));
+                    }
                     Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
                         error_message: Some(err.description().to_string()),
                         is_success: false,
@@ -611,7 +627,6 @@ pub mod responsehandlers {
             _ => return Ok(Response::with(iron::status::BadRequest)),
         };
     }
-
 
 
     pub fn ffa_purchase(req: &mut iron::request::Request) -> IronResult<Response> {
@@ -636,7 +651,7 @@ pub mod responsehandlers {
 
                 match result {
                     Ok(sux) => {
-                        log_purchase(&dat,parsed_body.item_id, None);
+                        log_purchase(&dat, parsed_body.item_id, None);
                         return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
                             error_message: None,
                             is_success: true,
@@ -644,8 +659,8 @@ pub mod responsehandlers {
                                 timestamp_epoch_millis: current_time_millis(),
                                 refreshed_data: sux,
                             }),
-                        }).unwrap())))
-                    },
+                        }).unwrap())));
+                    }
                     Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
                         error_message: Some(err.description().to_string()),
                         is_success: false,
@@ -656,7 +671,6 @@ pub mod responsehandlers {
             _ => return Ok(Response::with(iron::status::BadRequest)),
         };
     }
-
 
 
     pub fn create_budget_freeby(req: &mut iron::request::Request) -> IronResult<Response> {
@@ -702,7 +716,6 @@ pub mod responsehandlers {
     }
 
 
-
     pub fn create_count_freeby(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
         debug!("posted_body = {:?}", posted_body);
@@ -746,7 +759,6 @@ pub mod responsehandlers {
             _ => return Ok(Response::with(iron::status::BadRequest)),
         };
     }
-
 
 
     pub fn create_ffa_freeby(req: &mut iron::request::Request) -> IronResult<Response> {
@@ -996,7 +1008,7 @@ pub mod responsehandlers {
                 let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::CreateBill {
                     timestamp_from: parsed_body.timestamp_from,
                     timestamp_to: parsed_body.timestamp_to,
-                    user_ids: rustix_bl::datastore::UserGroup::AllUsers{},
+                    user_ids: rustix_bl::datastore::UserGroup::AllUsers {},
                     comment: parsed_body.comment,
                 });
 
@@ -1036,7 +1048,7 @@ pub mod responsehandlers {
                     timestamp_from: parsed_body.timestamp_from,
                     timestamp_to: parsed_body.timestamp_to,
                     comment: parsed_body.comment,
-                    users: rustix_bl::datastore::UserGroup::AllUsers{},
+                    users: rustix_bl::datastore::UserGroup::AllUsers {},
                     users_that_will_not_be_billed: parsed_body.exclude_user_ids,
                 });
 
@@ -1154,7 +1166,6 @@ pub mod responsehandlers {
 
                 match result {
                     Ok(sux) => {
-
                         let bill: rustix_bl::datastore::Bill = dat.datastore.get_bill(parsed_body.timestamp_from, parsed_body.timestamp_to).unwrap().clone();
 
                         match parsed_body.limit_to_user {
@@ -1177,7 +1188,7 @@ pub mod responsehandlers {
                                 };
 
                                 mail::send_mail(&parsed_body.email_address, &subject, "Your bill is attached to this mail as a CSV file", &attachments, conf, &mail::two_numbers_to_string(parsed_body.timestamp_from, parsed_body.timestamp_to)).unwrap();
-                            },
+                            }
                             None => {
                                 let subject = format!("Cervisia bill export on {}", Utc::now().format("%d.%m.%Y"));
                                 // construct csv to attach to mail
@@ -1207,9 +1218,8 @@ pub mod responsehandlers {
                                 };
 
                                 mail::send_mail(&parsed_body.email_address, &subject, "The bill is attached as two CSV files. One is to import into SEWOBE, the other is for internal tracking and contains additional information.", &attachments, conf, &mail::two_numbers_to_string(parsed_body.timestamp_from, parsed_body.timestamp_to)).unwrap();
-                            },
+                            }
                         }
-
 
 
                         return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
@@ -1219,8 +1229,8 @@ pub mod responsehandlers {
                                 timestamp_epoch_millis: current_time_millis(),
                                 refreshed_data: sux,
                             }),
-                        }).unwrap())))
-                    },
+                        }).unwrap())));
+                    }
                     Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
                         error_message: Some(err.description().to_string()),
                         is_success: false,
@@ -1617,9 +1627,6 @@ pub mod responsehandlers {
 
 pub fn execute_cervisia_server(with_config: &ServerConfig,
                                old_server: Option<iron::Listening>, backend: Option<Backend>) -> (iron::Listening) {
-
-
-
     info!("execute_cervisia_server begins for config = {:?}", with_config);
 
     if old_server.is_some() {
@@ -1687,8 +1694,6 @@ pub struct PaginatedResult<T> {
     pub to: u32,
     pub results: Vec<T>,
 }
-
-
 
 
 pub trait WriteApplicator {
@@ -1805,6 +1810,7 @@ mod tests {
             smpt_credentials_password: String::new(),
             smtp_port: 0,
             use_mock_data: true,
+            admin_password: "".to_string(),
         };
     }
 
