@@ -12,6 +12,7 @@ use std;
 use std::collections::*;
 use std::sync::RwLock;
 use std::vec::*;
+use std::ascii::AsciiExt;
 use typescriptify::TypeScriptifyTrait;
 
 #[derive(Serialize, Deserialize, TypeScriptify)]
@@ -506,7 +507,7 @@ impl ServableRustix for ServableRustixImpl {
                     }
                 }
 
-                v.sort_unstable_by(|a, b| a.username.cmp(&b.username));
+                v.sort_unstable_by(|a, b| a.username.to_ascii_lowercase().cmp(&b.username.to_ascii_lowercase()));
 
                 let result: PaginatedResult<rustix_bl::datastore::User> = PaginatedResult {
                     total_count: total,
