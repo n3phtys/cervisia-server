@@ -1187,7 +1187,12 @@ pub mod responsehandlers {
                                     hm
                                 };
 
-                                mail::send_mail(&parsed_body.email_address, &subject, "Your bill is attached to this mail as a CSV file", &attachments, conf, &mail::two_numbers_to_string(parsed_body.timestamp_from, parsed_body.timestamp_to)).unwrap();
+                                let emailresponse = mail::send_mail(&parsed_body.email_address, &subject, "Your bill is attached to this mail as a CSV file", &attachments, conf, &mail::two_numbers_to_string(parsed_body.timestamp_from, parsed_body.timestamp_to));
+                                if emailresponse.is_ok() {
+                                    info!("email successfully send: {:?}", emailresponse.unwrap());
+                                } else {
+                                    error!("email sending failed: {:?}", emailresponse.err().unwrap());
+                                }
                             }
                             None => {
                                 let subject = format!("Cervisia bill export on {}", Utc::now().format("%d.%m.%Y"));
@@ -1217,7 +1222,12 @@ pub mod responsehandlers {
                                     hm
                                 };
 
-                                mail::send_mail(&parsed_body.email_address, &subject, "The bill is attached as two CSV files. One is to import into SEWOBE, the other is for internal tracking and contains additional information.", &attachments, conf, &mail::two_numbers_to_string(parsed_body.timestamp_from, parsed_body.timestamp_to)).unwrap();
+                                let emailresponse = mail::send_mail(&parsed_body.email_address, &subject, "The bill is attached as two CSV files. One is to import into SEWOBE, the other is for internal tracking and contains additional information.", &attachments, conf, &mail::two_numbers_to_string(parsed_body.timestamp_from, parsed_body.timestamp_to));
+                                if emailresponse.is_ok() {
+                                    info!("email successfully send: {:?}", emailresponse.unwrap());
+                                } else {
+                                    error!("email sending failed: {:?}", emailresponse.err().unwrap());
+                                }
                             }
                         }
 
