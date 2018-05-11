@@ -1,37 +1,37 @@
 #![allow(non_snake_case)]
 
-use iron::prelude::*;
-use std::path::Path;
 use chrono::prelude::*;
+use iron::prelude::*;
 use std::collections::*;
 use std::error::Error;
+use std::path::Path;
 
-use iron::Iron;
-use staticfile::Static;
-use mount::Mount;
-use configuration::*;
-use iron;
-use rustix_bl;
-use serde_json;
-use std;
-use rustix_bl::rustix_event_shop;
-use importer::*;
-use manager::ParametersAll;
-use reqwest;
 use configuration;
-use std::io::Read;
+use configuration::*;
+use importer::*;
+use iron;
+use iron::Iron;
+use manager::ParametersAll;
+use mount::Mount;
+use reqwest;
+use rustix_bl;
+use rustix_bl::rustix_event_shop;
 use serde;
+use serde_json;
+use staticfile::Static;
+use std;
+use std::io::Read;
 
-use router::Router;
-use responsehandlers::*;
-use persistent::State;
 use iron::typemap::Key;
-use rustix_bl::rustix_backend::WriteBackend;
-use manager::fill_backend_with_large_test_data;
-use typescriptify::TypeScriptifyTrait;
-use manager;
 use mail;
+use manager;
+use manager::fill_backend_with_large_test_data;
 use manager::*;
+use persistent::State;
+use responsehandlers::*;
+use router::Router;
+use rustix_bl::rustix_backend::WriteBackend;
+use typescriptify::TypeScriptifyTrait;
 
 use params::{Params, Value};
 
@@ -110,14 +110,20 @@ fn typescript_definition_string() -> String {
     return s;
 }
 
-
 pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Listening {
     let mut router = Router::new();
 
-
     //let endpoints = typescript_definition_string();
-    router.get("/endpoints", |_: &mut iron::request::Request| Ok(Response::with((iron::status::Ok, typescript_definition_string()))), "endpoints");
-
+    router.get(
+        "/endpoints",
+        |_: &mut iron::request::Request| {
+            Ok(Response::with((
+                iron::status::Ok,
+                typescript_definition_string(),
+            )))
+        },
+        "endpoints",
+    );
 
     router.get("/users/all", all_users, "allusers");
     router.get("/users/top", top_users, "topusers");
@@ -129,8 +135,16 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     router.get("/bills", get_bills, "getbills");
     router.get("/bills/detail", get_detailed_bill, "getdetailedbill");
     router.get("/giveout/ffa", get_ffa_giveouts, "ffagiveouts");
-    router.get("/giveout/incoming", get_incoming_giveouts, "incominggiveouts");
-    router.get("/giveout/outgoing", get_outgoing_giveouts, "outgoinggiveouts");
+    router.get(
+        "/giveout/incoming",
+        get_incoming_giveouts,
+        "incominggiveouts",
+    );
+    router.get(
+        "/giveout/outgoing",
+        get_outgoing_giveouts,
+        "outgoinggiveouts",
+    );
     router.post("/users", add_user, "adduser");
     router.post("/items", add_item, "additem");
     router.post("/users/update", update_user, "updateuser");
@@ -140,8 +154,16 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     router.post("/purchases", simple_purchase, "addsimplepurchase");
     router.post("/purchases/cart", cart_purchase, "addcartpurchase");
     router.post("/purchases/ffa", ffa_purchase, "addffapurchase");
-    router.post("/purchases/undo/user", undo_purchase_by_user, "undopurchaseuser");
-    router.post("/purchases/undo/admin", undo_purchase_by_admin, "undopurchaseadmin");
+    router.post(
+        "/purchases/undo/user",
+        undo_purchase_by_user,
+        "undopurchaseuser",
+    );
+    router.post(
+        "/purchases/undo/admin",
+        undo_purchase_by_admin,
+        "undopurchaseadmin",
+    );
     router.post("/backup/snapshot", snapshot_by_admin, "backupsnapshot");
 
     router.post("/bill/create", create_bill, "createbill");
@@ -151,27 +173,41 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
 
     {
         let config = config.clone();
-        router.post("/bill/export", move |req: &mut iron::request::Request| {
-            let conf = config.clone();
-            export_bill(req, &conf)
-        }, "exportbill");
+        router.post(
+            "/bill/export",
+            move |req: &mut iron::request::Request| {
+                let conf = config.clone();
+                export_bill(req, &conf)
+            },
+            "exportbill",
+        );
     }
 
     {
         let config = config.clone();
-        router.post("/admin/checkpassword", move |req: &mut iron::request::Request| {
-            let conf = config.clone();
-            check_password(req, &conf)
-        }, "checkpassword");
+        router.post(
+            "/admin/checkpassword",
+            move |req: &mut iron::request::Request| {
+                let conf = config.clone();
+                check_password(req, &conf)
+            },
+            "checkpassword",
+        );
     }
 
+    router.post(
+        "/purchases/special/setprice",
+        set_special_price,
+        "setspecialprice",
+    );
 
-    router.post("/purchases/special/setprice", set_special_price, "setspecialprice");
-
-    router.post("/giveout/budget", create_budget_freeby, "createbudgetfreeby");
+    router.post(
+        "/giveout/budget",
+        create_budget_freeby,
+        "createbudgetfreeby",
+    );
     router.post("/giveout/count", create_count_freeby, "createcountfreeby");
     router.post("/giveout/ffa", create_ffa_freeby, "createffafreeby");
-
 
     let mut mount = Mount::new();
 
@@ -179,7 +215,6 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
         let mut chain = Chain::new(router);
 
         let fill = backend.is_none();
-
 
         let mut backend = backend.unwrap_or(if config.use_persistence {
             //mkdir for database
@@ -212,8 +247,7 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
 
         let _ = mount
             .mount("/api/", chain)
-            .mount("/", Static::new(Path::new(&config.web_path)))
-        ;
+            .mount("/", Static::new(Path::new(&config.web_path)));
     }
 
     let url = format!("{}:{}", config.host, config.server_port);
@@ -222,11 +256,10 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     return serv;
 }
 
-
 pub mod responsehandlers {
     use super::*;
-    use manager::*;
     use billformatter::BillFormatting;
+    use manager::*;
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct CreateItem {
@@ -236,7 +269,9 @@ pub mod responsehandlers {
     }
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
-    pub struct CreateUser { pub username: String }
+    pub struct CreateUser {
+        pub username: String,
+    }
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct UpdateItem {
@@ -256,17 +291,20 @@ pub mod responsehandlers {
     }
 
     #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
-    pub struct DeleteItem { pub item_id: u32 }
+    pub struct DeleteItem {
+        pub item_id: u32,
+    }
 
     #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
-    pub struct DeleteUser { pub user_id: u32 }
+    pub struct DeleteUser {
+        pub user_id: u32,
+    }
 
     #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct MakeSimplePurchase {
         pub user_id: u32,
         pub item_id: u32,
     }
-
 
     #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct KeyValue {
@@ -282,7 +320,9 @@ pub mod responsehandlers {
     }
 
     #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
-    pub struct UndoPurchase { pub unique_id: u64 }
+    pub struct UndoPurchase {
+        pub unique_id: u64,
+    }
 
     #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct CreateBill {
@@ -291,7 +331,6 @@ pub mod responsehandlers {
         pub comment: String,
     }
 
-
     #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct EditBill {
         pub timestamp_from: i64,
@@ -299,7 +338,6 @@ pub mod responsehandlers {
         pub comment: String,
         pub exclude_user_ids: HashSet<u32>,
     }
-
 
     #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct FinalizeBill {
@@ -320,7 +358,6 @@ pub mod responsehandlers {
         pub timestamp_from: i64,
         pub timestamp_to: i64,
     }
-
 
     #[derive(Serialize, Deserialize, Debug, Clone, TypeScriptify)]
     pub struct MakeFFAPurchase {
@@ -361,24 +398,21 @@ pub mod responsehandlers {
         pub price: u32,
     }
 
-
     fn extract_query(req: &mut iron::request::Request) -> Option<String> {
         let map = req.get_ref::<Params>().unwrap();
         return match map.find(&["query"]) {
             Some(&Value::String(ref json)) => {
                 return Some(json.to_string());
             }
-            _ => None
+            _ => None,
         };
     }
-
 
     fn extract_body(req: &mut iron::request::Request) -> String {
         let mut s = String::new();
         let _number_of_bytes = req.body.read_to_string(&mut s);
         return s;
     }
-
 
     pub fn undo_purchase_by_user(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
@@ -396,35 +430,53 @@ pub mod responsehandlers {
 
                 use rustix_bl::datastore::DatastoreQueries;
                 if match dat.datastore.get_purchase_timestamp(parsed_body.unique_id) {
-                    Some(ref t) => {
-                        cur < t + (30i64 * 1000i64)
-                    }
+                    Some(ref t) => cur < t + (30i64 * 1000i64),
                     None => false,
                 } {
-                    return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
-                        error_message: Some("A user may only undo a purchase before 30s have passed".to_string()),
-                        is_success: false,
-                        content: None,
-                    }).unwrap())));
-                } else {
-                    let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::UndoPurchase {
-                        unique_id: parsed_body.unique_id,
-                    });
-
-                    match result {
-                        Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                            error_message: None,
-                            is_success: true,
-                            content: Some(SuccessContent {
-                                timestamp_epoch_millis: current_time_millis(),
-                                refreshed_data: sux,
-                            }),
-                        }).unwrap()))),
-                        Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
-                            error_message: Some(err.description().to_string()),
+                    return Ok(Response::with((
+                        iron::status::Conflict,
+                        serde_json::to_string(&ServerWriteResult {
+                            error_message: Some(
+                                "A user may only undo a purchase before 30s have passed"
+                                    .to_string(),
+                            ),
                             is_success: false,
                             content: None,
-                        }).unwrap()))),
+                        }).unwrap(),
+                    )));
+                } else {
+                    let result = ServableRustixImpl::check_apply_write(
+                        &mut dat,
+                        param,
+                        rustix_bl::rustix_event_shop::BLEvents::UndoPurchase {
+                            unique_id: parsed_body.unique_id,
+                        },
+                    );
+
+                    match result {
+                        Ok(sux) => {
+                            return Ok(Response::with((
+                                iron::status::Ok,
+                                serde_json::to_string(&ServerWriteResult {
+                                    error_message: None,
+                                    is_success: true,
+                                    content: Some(SuccessContent {
+                                        timestamp_epoch_millis: current_time_millis(),
+                                        refreshed_data: sux,
+                                    }),
+                                }).unwrap(),
+                            )))
+                        }
+                        Err(err) => {
+                            return Ok(Response::with((
+                                iron::status::Conflict,
+                                serde_json::to_string(&ServerWriteResult {
+                                    error_message: Some(err.description().to_string()),
+                                    is_success: false,
+                                    content: None,
+                                }).unwrap(),
+                            )))
+                        }
                     }
                 }
             }
@@ -437,7 +489,10 @@ pub mod responsehandlers {
         let mut dat = datholder.write().unwrap();
         match dat.snapshot() {
             Some(count) => Ok(Response::with((iron::status::Ok, count.to_string()))),
-            None => Ok(Response::with((iron::status::BadRequest, "Could not snapshot state, is this not a persistent implementation?"))),
+            None => Ok(Response::with((
+                iron::status::BadRequest,
+                "Could not snapshot state, is this not a persistent implementation?",
+            ))),
         }
     }
 
@@ -455,7 +510,10 @@ pub mod responsehandlers {
                 let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
 
                 use rustix_bl::datastore::DatastoreQueries;
-                if dat.datastore.get_purchase_timestamp(parsed_body.unique_id).is_none() {
+                if dat.datastore
+                    .get_purchase_timestamp(parsed_body.unique_id)
+                    .is_none()
+                {
                     debug!("purchase not found");
                     return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
                         error_message: Some("Cannot find purchase to delete (the purchase may have already been finalized into a bill, undoing such a purchase is not possible)".to_string()),
@@ -463,24 +521,38 @@ pub mod responsehandlers {
                         content: None,
                     }).unwrap())));
                 } else {
-                    let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::UndoPurchase {
-                        unique_id: parsed_body.unique_id,
-                    });
+                    let result = ServableRustixImpl::check_apply_write(
+                        &mut dat,
+                        param,
+                        rustix_bl::rustix_event_shop::BLEvents::UndoPurchase {
+                            unique_id: parsed_body.unique_id,
+                        },
+                    );
 
                     match result {
-                        Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                            error_message: None,
-                            is_success: true,
-                            content: Some(SuccessContent {
-                                timestamp_epoch_millis: current_time_millis(),
-                                refreshed_data: sux,
-                            }),
-                        }).unwrap()))),
-                        Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
-                            error_message: Some(err.description().to_string()),
-                            is_success: false,
-                            content: None,
-                        }).unwrap()))),
+                        Ok(sux) => {
+                            return Ok(Response::with((
+                                iron::status::Ok,
+                                serde_json::to_string(&ServerWriteResult {
+                                    error_message: None,
+                                    is_success: true,
+                                    content: Some(SuccessContent {
+                                        timestamp_epoch_millis: current_time_millis(),
+                                        refreshed_data: sux,
+                                    }),
+                                }).unwrap(),
+                            )))
+                        }
+                        Err(err) => {
+                            return Ok(Response::with((
+                                iron::status::Conflict,
+                                serde_json::to_string(&ServerWriteResult {
+                                    error_message: Some(err.description().to_string()),
+                                    is_success: false,
+                                    content: None,
+                                }).unwrap(),
+                            )))
+                        }
                     }
                 }
             }
@@ -488,10 +560,15 @@ pub mod responsehandlers {
         };
     }
 
-
-    pub fn check_password(req: &mut iron::request::Request, conf: &configuration::ServerConfig) -> IronResult<Response> {
+    pub fn check_password(
+        req: &mut iron::request::Request,
+        conf: &configuration::ServerConfig,
+    ) -> IronResult<Response> {
         let posted_body: String = extract_body(req);
-        return Ok(Response::with((iron::status::Ok, serde_json::to_string(&( posted_body.trim() == conf.admin_password.trim())).unwrap())));
+        return Ok(Response::with((
+            iron::status::Ok,
+            serde_json::to_string(&(posted_body.trim() == conf.admin_password.trim())).unwrap(),
+        )));
     }
 
     pub fn simple_purchase(req: &mut iron::request::Request) -> IronResult<Response> {
@@ -506,29 +583,41 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
 
-                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::MakeSimplePurchase {
-                    user_id: parsed_body.user_id,
-                    item_id: parsed_body.item_id,
-                    timestamp: current_time_millis(),
-                });
+                let result = ServableRustixImpl::check_apply_write(
+                    &mut dat,
+                    param,
+                    rustix_bl::rustix_event_shop::BLEvents::MakeSimplePurchase {
+                        user_id: parsed_body.user_id,
+                        item_id: parsed_body.item_id,
+                        timestamp: current_time_millis(),
+                    },
+                );
 
                 match result {
                     Ok(sux) => {
                         log_purchase(&dat, parsed_body.item_id, Some(parsed_body.user_id));
-                        return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                            error_message: None,
-                            is_success: true,
-                            content: Some(SuccessContent {
-                                timestamp_epoch_millis: current_time_millis(),
-                                refreshed_data: sux,
-                            }),
-                        }).unwrap())));
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: None,
+                                is_success: true,
+                                content: Some(SuccessContent {
+                                    timestamp_epoch_millis: current_time_millis(),
+                                    refreshed_data: sux,
+                                }),
+                            }).unwrap(),
+                        )));
                     }
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
-                        error_message: Some(err.description().to_string()),
-                        is_success: false,
-                        content: None,
-                    }).unwrap()))),
+                    Err(err) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: Some(err.description().to_string()),
+                                is_success: false,
+                                content: None,
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -544,13 +633,19 @@ pub mod responsehandlers {
                     let user_opt = dat.datastore.users.get(&uid);
                     if user_opt.is_some() {
                         let user = user_opt.unwrap();
-                        info!("Purchase by {} (id = {}): item {} with cost of {} cents", user.username, user.user_id, item.name, item.cost_cents);
+                        info!(
+                            "Purchase by {} (id = {}): item {} with cost of {} cents",
+                            user.username, user.user_id, item.name, item.cost_cents
+                        );
                     } else {
                         error!("Cannot find user with user_id = {}", uid);
                     }
                 }
                 None => {
-                    info!("FFA Purchase with item of name {} with cost of {} cents", item.name, item.cost_cents);
+                    info!(
+                        "FFA Purchase with item of name {} with cost of {} cents",
+                        item.name, item.cost_cents
+                    );
                 }
             }
         } else {
@@ -591,26 +686,33 @@ pub mod responsehandlers {
                         for item_id in item_ids {
                             log_purchase(&dat, item_id, Some(parsed_body.user_id));
                         }
-                        return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                            error_message: None,
-                            is_success: true,
-                            content: Some(SuccessContent {
-                                timestamp_epoch_millis: current_time_millis(),
-                                refreshed_data: sux,
-                            }),
-                        }).unwrap())));
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: None,
+                                is_success: true,
+                                content: Some(SuccessContent {
+                                    timestamp_epoch_millis: current_time_millis(),
+                                    refreshed_data: sux,
+                                }),
+                            }).unwrap(),
+                        )));
                     }
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
-                        error_message: Some(err.description().to_string()),
-                        is_success: false,
-                        content: None,
-                    }).unwrap()))),
+                    Err(err) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: Some(err.description().to_string()),
+                                is_success: false,
+                                content: None,
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
         };
     }
-
 
     pub fn ffa_purchase(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
@@ -635,26 +737,33 @@ pub mod responsehandlers {
                 match result {
                     Ok(sux) => {
                         log_purchase(&dat, parsed_body.item_id, None);
-                        return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                            error_message: None,
-                            is_success: true,
-                            content: Some(SuccessContent {
-                                timestamp_epoch_millis: current_time_millis(),
-                                refreshed_data: sux,
-                            }),
-                        }).unwrap())));
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: None,
+                                is_success: true,
+                                content: Some(SuccessContent {
+                                    timestamp_epoch_millis: current_time_millis(),
+                                    refreshed_data: sux,
+                                }),
+                            }).unwrap(),
+                        )));
                     }
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
-                        error_message: Some(err.description().to_string()),
-                        is_success: false,
-                        content: None,
-                    }).unwrap()))),
+                    Err(err) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: Some(err.description().to_string()),
+                                is_success: false,
+                                content: None,
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
         };
     }
-
 
     pub fn create_budget_freeby(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
@@ -679,25 +788,34 @@ pub mod responsehandlers {
                 let result = ServableRustixImpl::check_apply_write(&mut dat, param, event);
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                        error_message: None,
-                        is_success: true,
-                        content: Some(SuccessContent {
-                            timestamp_epoch_millis: current_time_millis(),
-                            refreshed_data: sux,
-                        }),
-                    }).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
-                        error_message: Some(err.description().to_string()),
-                        is_success: false,
-                        content: None,
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: None,
+                                is_success: true,
+                                content: Some(SuccessContent {
+                                    timestamp_epoch_millis: current_time_millis(),
+                                    refreshed_data: sux,
+                                }),
+                            }).unwrap(),
+                        )))
+                    }
+                    Err(err) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: Some(err.description().to_string()),
+                                is_success: false,
+                                content: None,
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
         };
     }
-
 
     pub fn create_count_freeby(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
@@ -724,25 +842,34 @@ pub mod responsehandlers {
                 let result = ServableRustixImpl::check_apply_write(&mut dat, param, event);
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                        error_message: None,
-                        is_success: true,
-                        content: Some(SuccessContent {
-                            timestamp_epoch_millis: current_time_millis(),
-                            refreshed_data: sux,
-                        }),
-                    }).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
-                        error_message: Some(err.description().to_string()),
-                        is_success: false,
-                        content: None,
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: None,
+                                is_success: true,
+                                content: Some(SuccessContent {
+                                    timestamp_epoch_millis: current_time_millis(),
+                                    refreshed_data: sux,
+                                }),
+                            }).unwrap(),
+                        )))
+                    }
+                    Err(err) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: Some(err.description().to_string()),
+                                is_success: false,
+                                content: None,
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
         };
     }
-
 
     pub fn create_ffa_freeby(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
@@ -756,7 +883,6 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
 
-
                 let event = rustix_bl::rustix_event_shop::BLEvents::CreateFreeForAll {
                     allowed_categories: parsed_body.allowed_categories,
                     allowed_drinks: parsed_body.allowed_drinks,
@@ -769,19 +895,29 @@ pub mod responsehandlers {
                 let result = ServableRustixImpl::check_apply_write(&mut dat, param, event);
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                        error_message: None,
-                        is_success: true,
-                        content: Some(SuccessContent {
-                            timestamp_epoch_millis: current_time_millis(),
-                            refreshed_data: sux,
-                        }),
-                    }).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
-                        error_message: Some(err.description().to_string()),
-                        is_success: false,
-                        content: None,
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: None,
+                                is_success: true,
+                                content: Some(SuccessContent {
+                                    timestamp_epoch_millis: current_time_millis(),
+                                    refreshed_data: sux,
+                                }),
+                            }).unwrap(),
+                        )))
+                    }
+                    Err(err) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: Some(err.description().to_string()),
+                                is_success: false,
+                                content: None,
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -800,30 +936,43 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
 
-                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::CreateUser {
-                    username: parsed_body.username,
-                });
+                let result = ServableRustixImpl::check_apply_write(
+                    &mut dat,
+                    param,
+                    rustix_bl::rustix_event_shop::BLEvents::CreateUser {
+                        username: parsed_body.username,
+                    },
+                );
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                        error_message: None,
-                        is_success: true,
-                        content: Some(SuccessContent {
-                            timestamp_epoch_millis: current_time_millis(),
-                            refreshed_data: sux,
-                        }),
-                    }).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
-                        error_message: Some(err.description().to_string()),
-                        is_success: false,
-                        content: None,
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: None,
+                                is_success: true,
+                                content: Some(SuccessContent {
+                                    timestamp_epoch_millis: current_time_millis(),
+                                    refreshed_data: sux,
+                                }),
+                            }).unwrap(),
+                        )))
+                    }
+                    Err(err) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: Some(err.description().to_string()),
+                                is_success: false,
+                                content: None,
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
         };
     }
-
 
     pub fn delete_user(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
@@ -837,30 +986,43 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
 
-                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::DeleteUser {
-                    user_id: parsed_body.user_id,
-                });
+                let result = ServableRustixImpl::check_apply_write(
+                    &mut dat,
+                    param,
+                    rustix_bl::rustix_event_shop::BLEvents::DeleteUser {
+                        user_id: parsed_body.user_id,
+                    },
+                );
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                        error_message: None,
-                        is_success: true,
-                        content: Some(SuccessContent {
-                            timestamp_epoch_millis: current_time_millis(),
-                            refreshed_data: sux,
-                        }),
-                    }).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
-                        error_message: Some(err.description().to_string()),
-                        is_success: false,
-                        content: None,
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: None,
+                                is_success: true,
+                                content: Some(SuccessContent {
+                                    timestamp_epoch_millis: current_time_millis(),
+                                    refreshed_data: sux,
+                                }),
+                            }).unwrap(),
+                        )))
+                    }
+                    Err(err) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: Some(err.description().to_string()),
+                                is_success: false,
+                                content: None,
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
         };
     }
-
 
     pub fn delete_item(req: &mut iron::request::Request) -> IronResult<Response> {
         let posted_body = extract_body(req);
@@ -874,24 +1036,38 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
 
-                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::DeleteItem {
-                    item_id: parsed_body.item_id,
-                });
+                let result = ServableRustixImpl::check_apply_write(
+                    &mut dat,
+                    param,
+                    rustix_bl::rustix_event_shop::BLEvents::DeleteItem {
+                        item_id: parsed_body.item_id,
+                    },
+                );
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                        error_message: None,
-                        is_success: true,
-                        content: Some(SuccessContent {
-                            timestamp_epoch_millis: current_time_millis(),
-                            refreshed_data: sux,
-                        }),
-                    }).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
-                        error_message: Some(err.description().to_string()),
-                        is_success: false,
-                        content: None,
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: None,
+                                is_success: true,
+                                content: Some(SuccessContent {
+                                    timestamp_epoch_millis: current_time_millis(),
+                                    refreshed_data: sux,
+                                }),
+                            }).unwrap(),
+                        )))
+                    }
+                    Err(err) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: Some(err.description().to_string()),
+                                is_success: false,
+                                content: None,
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -910,28 +1086,42 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
 
-                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::UpdateUser {
-                    user_id: parsed_body.user_id,
-                    username: parsed_body.username,
-                    is_billed: parsed_body.is_billed,
-                    is_highlighted: parsed_body.highlight_in_ui,
-                    external_user_id: parsed_body.external_user_id,
-                });
+                let result = ServableRustixImpl::check_apply_write(
+                    &mut dat,
+                    param,
+                    rustix_bl::rustix_event_shop::BLEvents::UpdateUser {
+                        user_id: parsed_body.user_id,
+                        username: parsed_body.username,
+                        is_billed: parsed_body.is_billed,
+                        is_highlighted: parsed_body.highlight_in_ui,
+                        external_user_id: parsed_body.external_user_id,
+                    },
+                );
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                        error_message: None,
-                        is_success: true,
-                        content: Some(SuccessContent {
-                            timestamp_epoch_millis: current_time_millis(),
-                            refreshed_data: sux,
-                        }),
-                    }).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
-                        error_message: Some(err.description().to_string()),
-                        is_success: false,
-                        content: None,
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: None,
+                                is_success: true,
+                                content: Some(SuccessContent {
+                                    timestamp_epoch_millis: current_time_millis(),
+                                    refreshed_data: sux,
+                                }),
+                            }).unwrap(),
+                        )))
+                    }
+                    Err(err) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: Some(err.description().to_string()),
+                                is_success: false,
+                                content: None,
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -950,26 +1140,40 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
 
-                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::CreateItem {
-                    itemname: parsed_body.name,
-                    price_cents: parsed_body.price_cents,
-                    category: parsed_body.category,
-                });
+                let result = ServableRustixImpl::check_apply_write(
+                    &mut dat,
+                    param,
+                    rustix_bl::rustix_event_shop::BLEvents::CreateItem {
+                        itemname: parsed_body.name,
+                        price_cents: parsed_body.price_cents,
+                        category: parsed_body.category,
+                    },
+                );
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                        error_message: None,
-                        is_success: true,
-                        content: Some(SuccessContent {
-                            timestamp_epoch_millis: current_time_millis(),
-                            refreshed_data: sux,
-                        }),
-                    }).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
-                        error_message: Some(err.description().to_string()),
-                        is_success: false,
-                        content: None,
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: None,
+                                is_success: true,
+                                content: Some(SuccessContent {
+                                    timestamp_epoch_millis: current_time_millis(),
+                                    refreshed_data: sux,
+                                }),
+                            }).unwrap(),
+                        )))
+                    }
+                    Err(err) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: Some(err.description().to_string()),
+                                is_success: false,
+                                content: None,
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -988,27 +1192,41 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
 
-                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::CreateBill {
-                    timestamp_from: parsed_body.timestamp_from,
-                    timestamp_to: parsed_body.timestamp_to,
-                    user_ids: rustix_bl::datastore::UserGroup::AllUsers {},
-                    comment: parsed_body.comment,
-                });
+                let result = ServableRustixImpl::check_apply_write(
+                    &mut dat,
+                    param,
+                    rustix_bl::rustix_event_shop::BLEvents::CreateBill {
+                        timestamp_from: parsed_body.timestamp_from,
+                        timestamp_to: parsed_body.timestamp_to,
+                        user_ids: rustix_bl::datastore::UserGroup::AllUsers {},
+                        comment: parsed_body.comment,
+                    },
+                );
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                        error_message: None,
-                        is_success: true,
-                        content: Some(SuccessContent {
-                            timestamp_epoch_millis: current_time_millis(),
-                            refreshed_data: sux,
-                        }),
-                    }).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
-                        error_message: Some(err.description().to_string()),
-                        is_success: false,
-                        content: None,
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: None,
+                                is_success: true,
+                                content: Some(SuccessContent {
+                                    timestamp_epoch_millis: current_time_millis(),
+                                    refreshed_data: sux,
+                                }),
+                            }).unwrap(),
+                        )))
+                    }
+                    Err(err) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: Some(err.description().to_string()),
+                                is_success: false,
+                                content: None,
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -1027,28 +1245,42 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
 
-                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::UpdateBill {
-                    timestamp_from: parsed_body.timestamp_from,
-                    timestamp_to: parsed_body.timestamp_to,
-                    comment: parsed_body.comment,
-                    users: rustix_bl::datastore::UserGroup::AllUsers {},
-                    users_that_will_not_be_billed: parsed_body.exclude_user_ids,
-                });
+                let result = ServableRustixImpl::check_apply_write(
+                    &mut dat,
+                    param,
+                    rustix_bl::rustix_event_shop::BLEvents::UpdateBill {
+                        timestamp_from: parsed_body.timestamp_from,
+                        timestamp_to: parsed_body.timestamp_to,
+                        comment: parsed_body.comment,
+                        users: rustix_bl::datastore::UserGroup::AllUsers {},
+                        users_that_will_not_be_billed: parsed_body.exclude_user_ids,
+                    },
+                );
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                        error_message: None,
-                        is_success: true,
-                        content: Some(SuccessContent {
-                            timestamp_epoch_millis: current_time_millis(),
-                            refreshed_data: sux,
-                        }),
-                    }).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
-                        error_message: Some(err.description().to_string()),
-                        is_success: false,
-                        content: None,
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: None,
+                                is_success: true,
+                                content: Some(SuccessContent {
+                                    timestamp_epoch_millis: current_time_millis(),
+                                    refreshed_data: sux,
+                                }),
+                            }).unwrap(),
+                        )))
+                    }
+                    Err(err) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: Some(err.description().to_string()),
+                                is_success: false,
+                                content: None,
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -1067,25 +1299,39 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
 
-                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::DeleteUnfinishedBill {
-                    timestamp_from: parsed_body.timestamp_from,
-                    timestamp_to: parsed_body.timestamp_to,
-                });
+                let result = ServableRustixImpl::check_apply_write(
+                    &mut dat,
+                    param,
+                    rustix_bl::rustix_event_shop::BLEvents::DeleteUnfinishedBill {
+                        timestamp_from: parsed_body.timestamp_from,
+                        timestamp_to: parsed_body.timestamp_to,
+                    },
+                );
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                        error_message: None,
-                        is_success: true,
-                        content: Some(SuccessContent {
-                            timestamp_epoch_millis: current_time_millis(),
-                            refreshed_data: sux,
-                        }),
-                    }).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
-                        error_message: Some(err.description().to_string()),
-                        is_success: false,
-                        content: None,
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: None,
+                                is_success: true,
+                                content: Some(SuccessContent {
+                                    timestamp_epoch_millis: current_time_millis(),
+                                    refreshed_data: sux,
+                                }),
+                            }).unwrap(),
+                        )))
+                    }
+                    Err(err) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: Some(err.description().to_string()),
+                                is_success: false,
+                                content: None,
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -1104,32 +1350,49 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
 
-                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::FinalizeBill {
-                    timestamp_from: parsed_body.timestamp_from,
-                    timestamp_to: parsed_body.timestamp_to,
-                });
+                let result = ServableRustixImpl::check_apply_write(
+                    &mut dat,
+                    param,
+                    rustix_bl::rustix_event_shop::BLEvents::FinalizeBill {
+                        timestamp_from: parsed_body.timestamp_from,
+                        timestamp_to: parsed_body.timestamp_to,
+                    },
+                );
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                        error_message: None,
-                        is_success: true,
-                        content: Some(SuccessContent {
-                            timestamp_epoch_millis: current_time_millis(),
-                            refreshed_data: sux,
-                        }),
-                    }).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
-                        error_message: Some(err.description().to_string()),
-                        is_success: false,
-                        content: None,
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: None,
+                                is_success: true,
+                                content: Some(SuccessContent {
+                                    timestamp_epoch_millis: current_time_millis(),
+                                    refreshed_data: sux,
+                                }),
+                            }).unwrap(),
+                        )))
+                    }
+                    Err(err) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: Some(err.description().to_string()),
+                                is_success: false,
+                                content: None,
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
         };
     }
 
-    pub fn export_bill(req: &mut iron::request::Request, conf: &configuration::ServerConfig) -> IronResult<Response> {
+    pub fn export_bill(
+        req: &mut iron::request::Request,
+        conf: &configuration::ServerConfig,
+    ) -> IronResult<Response> {
         let posted_body = extract_body(req);
         debug!("posted_body = {:?}", posted_body);
         let parsed_body: ExportBill = serde_json::from_str(&posted_body).unwrap();
@@ -1141,21 +1404,31 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
 
-                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::ExportBill {
-                    timestamp_from: parsed_body.timestamp_from,
-                    timestamp_to: parsed_body.timestamp_to,
-                });
-
+                let result = ServableRustixImpl::check_apply_write(
+                    &mut dat,
+                    param,
+                    rustix_bl::rustix_event_shop::BLEvents::ExportBill {
+                        timestamp_from: parsed_body.timestamp_from,
+                        timestamp_to: parsed_body.timestamp_to,
+                    },
+                );
 
                 match result {
                     Ok(sux) => {
                         use rustix_bl::datastore::DatastoreQueries;
-                        let bill: rustix_bl::datastore::Bill = dat.datastore.get_bill(parsed_body.timestamp_from, parsed_body.timestamp_to).unwrap().clone();
+                        let bill: rustix_bl::datastore::Bill = dat.datastore
+                            .get_bill(parsed_body.timestamp_from, parsed_body.timestamp_to)
+                            .unwrap()
+                            .clone();
 
                         match parsed_body.limit_to_user {
                             Some(user_id) => {
-                                let subject = format!("Your Cervisia bill export on {}", Utc::now().format("%d.%m.%Y"));
-                                let body_cells = bill.format_as_personalized_documentation(&user_id);
+                                let subject = format!(
+                                    "Your Cervisia bill export on {}",
+                                    Utc::now().format("%d.%m.%Y")
+                                );
+                                let body_cells =
+                                    bill.format_as_personalized_documentation(&user_id);
                                 //TODO: replace delimiter by making it configurable
 
                                 let mut lines: Vec<String> = Vec::new();
@@ -1165,21 +1438,40 @@ pub mod responsehandlers {
                                 }
                                 let body: String = lines.join("\n");
 
-                                let attachments: HashMap<String, String> = {
+                                let attachments: HashMap<
+                                    String,
+                                    String,
+                                > = {
                                     let mut hm = HashMap::new();
                                     hm.insert("exported_bill.csv".to_string(), body);
                                     hm
                                 };
 
-                                let emailresponse = mail::send_mail(&parsed_body.email_address, &subject, "Your bill is attached to this mail as a CSV file", &attachments, conf, &mail::two_numbers_to_string(parsed_body.timestamp_from, parsed_body.timestamp_to));
+                                let emailresponse = mail::send_mail(
+                                    &parsed_body.email_address,
+                                    &subject,
+                                    "Your bill is attached to this mail as a CSV file",
+                                    &attachments,
+                                    conf,
+                                    &mail::two_numbers_to_string(
+                                        parsed_body.timestamp_from,
+                                        parsed_body.timestamp_to,
+                                    ),
+                                );
                                 if emailresponse.is_ok() {
                                     info!("email successfully send: {:?}", emailresponse.unwrap());
                                 } else {
-                                    error!("email sending failed: {:?}", emailresponse.err().unwrap());
+                                    error!(
+                                        "email sending failed: {:?}",
+                                        emailresponse.err().unwrap()
+                                    );
                                 }
                             }
                             None => {
-                                let subject = format!("Cervisia bill export on {}", Utc::now().format("%d.%m.%Y"));
+                                let subject = format!(
+                                    "Cervisia bill export on {}",
+                                    Utc::now().format("%d.%m.%Y")
+                                );
                                 // construct csv to attach to mail
                                 let body_a_cells = bill.format_as_sewobe_csv();
                                 // construct total list for all users
@@ -1199,7 +1491,10 @@ pub mod responsehandlers {
                                 }
                                 let body_b: String = lines_b.join("\n");
 
-                                let attachments: HashMap<String, String> = {
+                                let attachments: HashMap<
+                                    String,
+                                    String,
+                                > = {
                                     let mut hm = HashMap::new();
                                     hm.insert("internal_oversight.csv".to_string(), body_b);
                                     hm.insert("sewobe_import.csv".to_string(), body_a);
@@ -1210,26 +1505,36 @@ pub mod responsehandlers {
                                 if emailresponse.is_ok() {
                                     info!("email successfully send: {:?}", emailresponse.unwrap());
                                 } else {
-                                    error!("email sending failed: {:?}", emailresponse.err().unwrap());
+                                    error!(
+                                        "email sending failed: {:?}",
+                                        emailresponse.err().unwrap()
+                                    );
                                 }
                             }
                         }
 
-
-                        return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                            error_message: None,
-                            is_success: true,
-                            content: Some(SuccessContent {
-                                timestamp_epoch_millis: current_time_millis(),
-                                refreshed_data: sux,
-                            }),
-                        }).unwrap())));
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: None,
+                                is_success: true,
+                                content: Some(SuccessContent {
+                                    timestamp_epoch_millis: current_time_millis(),
+                                    refreshed_data: sux,
+                                }),
+                            }).unwrap(),
+                        )));
                     }
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
-                        error_message: Some(err.description().to_string()),
-                        is_success: false,
-                        content: None,
-                    }).unwrap()))),
+                    Err(err) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: Some(err.description().to_string()),
+                                is_success: false,
+                                content: None,
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -1248,25 +1553,39 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
 
-                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::SetPriceForSpecial {
-                    unique_id: parsed_body.unique_id,
-                    price: parsed_body.price,
-                });
+                let result = ServableRustixImpl::check_apply_write(
+                    &mut dat,
+                    param,
+                    rustix_bl::rustix_event_shop::BLEvents::SetPriceForSpecial {
+                        unique_id: parsed_body.unique_id,
+                        price: parsed_body.price,
+                    },
+                );
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                        error_message: None,
-                        is_success: true,
-                        content: Some(SuccessContent {
-                            timestamp_epoch_millis: current_time_millis(),
-                            refreshed_data: sux,
-                        }),
-                    }).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
-                        error_message: Some(err.description().to_string()),
-                        is_success: false,
-                        content: None,
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: None,
+                                is_success: true,
+                                content: Some(SuccessContent {
+                                    timestamp_epoch_millis: current_time_millis(),
+                                    refreshed_data: sux,
+                                }),
+                            }).unwrap(),
+                        )))
+                    }
+                    Err(err) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: Some(err.description().to_string()),
+                                is_success: false,
+                                content: None,
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -1285,27 +1604,41 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
 
-                let result = ServableRustixImpl::check_apply_write(&mut dat, param, rustix_bl::rustix_event_shop::BLEvents::UpdateItem {
-                    item_id: parsed_body.item_id,
-                    itemname: parsed_body.name,
-                    price_cents: parsed_body.price_cents,
-                    category: parsed_body.category,
-                });
+                let result = ServableRustixImpl::check_apply_write(
+                    &mut dat,
+                    param,
+                    rustix_bl::rustix_event_shop::BLEvents::UpdateItem {
+                        item_id: parsed_body.item_id,
+                        itemname: parsed_body.name,
+                        price_cents: parsed_body.price_cents,
+                        category: parsed_body.category,
+                    },
+                );
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&ServerWriteResult {
-                        error_message: None,
-                        is_success: true,
-                        content: Some(SuccessContent {
-                            timestamp_epoch_millis: current_time_millis(),
-                            refreshed_data: sux,
-                        }),
-                    }).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
-                        error_message: Some(err.description().to_string()),
-                        is_success: false,
-                        content: None,
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: None,
+                                is_success: true,
+                                content: Some(SuccessContent {
+                                    timestamp_epoch_millis: current_time_millis(),
+                                    refreshed_data: sux,
+                                }),
+                            }).unwrap(),
+                        )))
+                    }
+                    Err(err) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&ServerWriteResult {
+                                error_message: Some(err.description().to_string()),
+                                is_success: false,
+                                content: None,
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -1321,16 +1654,27 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersTopPersonalDrinks = serde_json::from_str(&json_query).unwrap();
 
-                let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::TopPersonalDrinks(param));
+                let result =
+                    ServableRustixImpl::query_read(&dat, ReadQueryParams::TopPersonalDrinks(param));
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
-                        total_count: 0,
-                        from: 0,
-                        to: 0,
-                        results: Vec::new(),
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&sux).unwrap(),
+                        )))
+                    }
+                    Err(_) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                                total_count: 0,
+                                from: 0,
+                                to: 0,
+                                results: Vec::new(),
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -1346,16 +1690,27 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersOpenFFAFreebies = serde_json::from_str(&json_query).unwrap();
 
-                let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::OpenFFAFreebies(param));
+                let result =
+                    ServableRustixImpl::query_read(&dat, ReadQueryParams::OpenFFAFreebies(param));
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
-                        total_count: 0,
-                        from: 0,
-                        to: 0,
-                        results: Vec::new(),
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&sux).unwrap(),
+                        )))
+                    }
+                    Err(_) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                                total_count: 0,
+                                from: 0,
+                                to: 0,
+                                results: Vec::new(),
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -1371,16 +1726,27 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersIncomingFreebies = serde_json::from_str(&json_query).unwrap();
 
-                let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::IncomingFreebies(param));
+                let result =
+                    ServableRustixImpl::query_read(&dat, ReadQueryParams::IncomingFreebies(param));
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
-                        total_count: 0,
-                        from: 0,
-                        to: 0,
-                        results: Vec::new(),
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&sux).unwrap(),
+                        )))
+                    }
+                    Err(_) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                                total_count: 0,
+                                from: 0,
+                                to: 0,
+                                results: Vec::new(),
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -1396,22 +1762,32 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersOutgoingFreebies = serde_json::from_str(&json_query).unwrap();
 
-                let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::OutgoingFreebies(param));
+                let result =
+                    ServableRustixImpl::query_read(&dat, ReadQueryParams::OutgoingFreebies(param));
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
-                        total_count: 0,
-                        from: 0,
-                        to: 0,
-                        results: Vec::new(),
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&sux).unwrap(),
+                        )))
+                    }
+                    Err(_) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                                total_count: 0,
+                                from: 0,
+                                to: 0,
+                                results: Vec::new(),
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
         };
     }
-
 
     pub fn all_users(req: &mut iron::request::Request) -> IronResult<Response> {
         let datholder = req.get::<State<SharedBackend>>().unwrap();
@@ -1425,13 +1801,23 @@ pub mod responsehandlers {
                 let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::AllUsers(param));
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
-                        total_count: 0,
-                        from: 0,
-                        to: 0,
-                        results: Vec::new(),
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&sux).unwrap(),
+                        )))
+                    }
+                    Err(_) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                                total_count: 0,
+                                from: 0,
+                                to: 0,
+                                results: Vec::new(),
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -1450,13 +1836,23 @@ pub mod responsehandlers {
                 let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::AllItems(param));
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
-                        total_count: 0,
-                        from: 0,
-                        to: 0,
-                        results: Vec::new(),
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&sux).unwrap(),
+                        )))
+                    }
+                    Err(_) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                                total_count: 0,
+                                from: 0,
+                                to: 0,
+                                results: Vec::new(),
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -1472,16 +1868,27 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersDetailInfoForUser = serde_json::from_str(&json_query).unwrap();
 
-                let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::DetailInfoForUser(param));
+                let result =
+                    ServableRustixImpl::query_read(&dat, ReadQueryParams::DetailInfoForUser(param));
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
-                        total_count: 0,
-                        from: 0,
-                        to: 0,
-                        results: Vec::new(),
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&sux).unwrap(),
+                        )))
+                    }
+                    Err(_) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                                total_count: 0,
+                                from: 0,
+                                to: 0,
+                                results: Vec::new(),
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -1495,18 +1902,32 @@ pub mod responsehandlers {
 
         match query_str {
             Some(json_query) => {
-                let param: ParametersPurchaseLogPersonal = serde_json::from_str(&json_query).unwrap();
+                let param: ParametersPurchaseLogPersonal =
+                    serde_json::from_str(&json_query).unwrap();
 
-                let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::PurchaseLogPersonal(param));
+                let result = ServableRustixImpl::query_read(
+                    &dat,
+                    ReadQueryParams::PurchaseLogPersonal(param),
+                );
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
-                        total_count: 0,
-                        from: 0,
-                        to: 0,
-                        results: Vec::new(),
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&sux).unwrap(),
+                        )))
+                    }
+                    Err(_) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                                total_count: 0,
+                                from: 0,
+                                to: 0,
+                                results: Vec::new(),
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -1527,13 +1948,23 @@ pub mod responsehandlers {
                 debug!("Bills are queried with result = {:?}", result);
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::Bill> {
-                        total_count: 0,
-                        from: 0,
-                        to: 0,
-                        results: Vec::new(),
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&sux).unwrap(),
+                        )))
+                    }
+                    Err(_) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::Bill> {
+                                total_count: 0,
+                                from: 0,
+                                to: 0,
+                                results: Vec::new(),
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -1549,18 +1980,29 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersBillDetails = serde_json::from_str(&json_query).unwrap();
 
-                let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::BillDetails(param));
+                let result =
+                    ServableRustixImpl::query_read(&dat, ReadQueryParams::BillDetails(param));
 
                 debug!("Bill details are queried with result = {:?}", result);
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<DetailedBill> {
-                        total_count: 0,
-                        from: 0,
-                        to: 0,
-                        results: Vec::new(),
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&sux).unwrap(),
+                        )))
+                    }
+                    Err(_) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&PaginatedResult::<DetailedBill> {
+                                total_count: 0,
+                                from: 0,
+                                to: 0,
+                                results: Vec::new(),
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -1576,16 +2018,27 @@ pub mod responsehandlers {
             Some(json_query) => {
                 let param: ParametersPurchaseLogGlobal = serde_json::from_str(&json_query).unwrap();
 
-                let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::PurchaseLogGlobal(param));
+                let result =
+                    ServableRustixImpl::query_read(&dat, ReadQueryParams::PurchaseLogGlobal(param));
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
-                        total_count: 0,
-                        from: 0,
-                        to: 0,
-                        results: Vec::new(),
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&sux).unwrap(),
+                        )))
+                    }
+                    Err(_) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                                total_count: 0,
+                                from: 0,
+                                to: 0,
+                                results: Vec::new(),
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -1604,13 +2057,23 @@ pub mod responsehandlers {
                 let result = ServableRustixImpl::query_read(&dat, ReadQueryParams::TopUsers(param));
 
                 match result {
-                    Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
-                        total_count: 0,
-                        from: 0,
-                        to: 0,
-                        results: Vec::new(),
-                    }).unwrap()))),
+                    Ok(sux) => {
+                        return Ok(Response::with((
+                            iron::status::Ok,
+                            serde_json::to_string(&sux).unwrap(),
+                        )))
+                    }
+                    Err(_) => {
+                        return Ok(Response::with((
+                            iron::status::Conflict,
+                            serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                                total_count: 0,
+                                from: 0,
+                                to: 0,
+                                results: Vec::new(),
+                            }).unwrap(),
+                        )))
+                    }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
@@ -1618,10 +2081,15 @@ pub mod responsehandlers {
     }
 }
 
-
-pub fn execute_cervisia_server(with_config: &ServerConfig,
-                               old_server: Option<iron::Listening>, backend: Option<Backend>) -> (iron::Listening) {
-    info!("execute_cervisia_server begins for config = {:?}", with_config);
+pub fn execute_cervisia_server(
+    with_config: &ServerConfig,
+    old_server: Option<iron::Listening>,
+    backend: Option<Backend>,
+) -> (iron::Listening) {
+    info!(
+        "execute_cervisia_server begins for config = {:?}",
+        with_config
+    );
 
     if old_server.is_some() {
         info!("Closing old server");
@@ -1629,13 +2097,11 @@ pub fn execute_cervisia_server(with_config: &ServerConfig,
         old_server.unwrap().close().unwrap();
     };
 
-
     info!("Building server");
 
     let server = build_server(with_config, backend);
 
     info!("Having built server");
-
 
     return server;
 }
@@ -1689,12 +2155,17 @@ pub struct PaginatedResult<T> {
     pub results: Vec<T>,
 }
 
-
 pub trait WriteApplicator {
     type ErrorType: std::error::Error;
 
-    fn apply_write(backend: &mut Backend, event: rustix_event_shop::BLEvents) -> Result<SuccessContent, Self::ErrorType>;
-    fn apply_write_to_result(backend: &mut Backend, event: rustix_event_shop::BLEvents) -> ServerWriteResult {
+    fn apply_write(
+        backend: &mut Backend,
+        event: rustix_event_shop::BLEvents,
+    ) -> Result<SuccessContent, Self::ErrorType>;
+    fn apply_write_to_result(
+        backend: &mut Backend,
+        event: rustix_event_shop::BLEvents,
+    ) -> ServerWriteResult {
         let r = Self::apply_write(backend, event);
         return match r {
             Ok(res) => ServerWriteResult {
@@ -1711,7 +2182,6 @@ pub trait WriteApplicator {
     }
 }
 
-
 pub fn blocking_http_get_call(url: &str) -> Result<String, reqwest::Error> {
     let mut res = reqwest::get(url)?;
 
@@ -1727,13 +2197,15 @@ pub fn blocking_http_get_call(url: &str) -> Result<String, reqwest::Error> {
     return Ok(s);
 }
 
-
-pub fn blocking_http_post_call<T: serde::ser::Serialize>(url: &str, content: &T) -> Result<String, reqwest::Error> {
+pub fn blocking_http_post_call<T: serde::ser::Serialize>(
+    url: &str,
+    content: &T,
+) -> Result<String, reqwest::Error> {
     let client = reqwest::Client::new();
-    let mut res = client.post(url)
+    let mut res = client
+        .post(url)
         .body(serde_json::to_string(content).unwrap())
         .send()?;
-
 
     debug!("Status: {}", res.status());
     debug!("Headers:\n{}", res.headers());
@@ -1747,40 +2219,33 @@ pub fn blocking_http_post_call<T: serde::ser::Serialize>(url: &str, content: &T)
     return Ok(s);
 }
 
-
 #[cfg(test)]
 mod tests {
-    use iron::Iron;
-    use manager::*;
-    use staticfile::Static;
-    use mount::Mount;
-    use hello_world;
-    use ResponseTime;
     use configuration::*;
     use iron;
-    use rustix_bl;
-    use serde_json;
-    use std;
-    use rustix_bl::rustix_event_shop;
-    use std::sync::RwLock;
-    use manager::ParametersAll;
-    use reqwest;
-    use std::io::Read;
-    use server::*;
+    use iron::Iron;
     use manager::tests::*;
-    use std::thread;
-    use std::sync::{Arc, Mutex};
+    use manager::ParametersAll;
+    use manager::*;
+    use mount::Mount;
+    use reqwest;
+    use rustix_bl;
+    use rustix_bl::rustix_event_shop;
+    use serde_json;
+    use server::*;
+    use staticfile::Static;
+    use std;
+    use std::io::Read;
     use std::sync::mpsc::channel;
-
+    use std::sync::RwLock;
+    use std::sync::{Arc, Mutex};
+    use std::thread;
 
     const HOST_WITHOUTPORT: &'static str = "http://localhost:";
 
-
     lazy_static! {
-
-    static ref PORTCOUNTER: Mutex<u16> = Mutex::new(8081);
-
-}
+        static ref PORTCOUNTER: Mutex<u16> = Mutex::new(8081);
+    }
 
     fn get_and_increment_port() -> u16 {
         let mut data = PORTCOUNTER.lock().unwrap();
@@ -1808,7 +2273,10 @@ mod tests {
         };
     }
 
-    fn build_default_server<T>(function_to_fill_backend: T) -> (iron::Listening, ServerConfig) where T: Fn(&mut Backend) -> () {
+    fn build_default_server<T>(function_to_fill_backend: T) -> (iron::Listening, ServerConfig)
+    where
+        T: Fn(&mut Backend) -> (),
+    {
         let default_server_conf = get_server_config();
 
         let mut backend = rustix_bl::build_transient_backend();
@@ -1820,42 +2288,19 @@ mod tests {
         return (a, default_server_conf);
     }
 
-
     #[test]
     fn index_html_works() {
         let (server, config) = build_default_server(fill_not);
 
-        let httpbody = blocking_http_get_call(&format!("{}{}/index.html", HOST_WITHOUTPORT, config.server_port)).unwrap();
+        let httpbody = blocking_http_get_call(&format!(
+            "{}{}/index.html",
+            HOST_WITHOUTPORT, config.server_port
+        )).unwrap();
 
         let mut server = server;
         server.close().unwrap();
 
         assert!(httpbody.contains("Cervisia Frontend"));
-    }
-
-
-    #[test]
-    fn hello_world_works() {
-        let (server, config) = build_default_server(fill_not);
-
-        let httpbody = blocking_http_get_call(&format!("{}{}/api/helloworld", HOST_WITHOUTPORT, config.server_port)).unwrap();
-
-        let mut server = server;
-        server.close().unwrap();
-
-        assert_eq!(httpbody, "Hello World");
-    }
-
-    #[test]
-    fn second_hello_world_works() {
-        let (server, config) = build_default_server(fill_not);
-
-        let httpbody = blocking_http_get_call(&format!("{}{}/api/helloworld", HOST_WITHOUTPORT, config.server_port)).unwrap();
-
-        let mut server = server;
-        server.close().unwrap();
-
-        assert_eq!(httpbody, "Hello World");
     }
 
     #[test]
@@ -1873,18 +2318,20 @@ mod tests {
             },
         };
         let query = serde_json::to_string(&params).unwrap();
-        let url = format!("{}{}/api/users/all?query={}", HOST_WITHOUTPORT, config.server_port, query);
+        let url = format!(
+            "{}{}/api/users/all?query={}",
+            HOST_WITHOUTPORT, config.server_port, query
+        );
 
         let httpbody = blocking_http_get_call(&url).unwrap();
 
         server.close().unwrap();
 
-
-        let parsedjson: PaginatedResult<rustix_bl::datastore::User> = serde_json::from_str(&httpbody).unwrap();
+        let parsedjson: PaginatedResult<rustix_bl::datastore::User> =
+            serde_json::from_str(&httpbody).unwrap();
 
         assert_eq!(parsedjson.results.len(), 53);
     }
-
 
     #[test]
     fn adding_a_user_works() {
@@ -1903,34 +2350,72 @@ mod tests {
 
         {
             let query = serde_json::to_string(&params_for_user).unwrap();
-            let url = format!("{}{}/api/users/all?query={}", HOST_WITHOUTPORT, config.server_port, query);
+            let url = format!(
+                "{}{}/api/users/all?query={}",
+                HOST_WITHOUTPORT, config.server_port, query
+            );
 
             let httpbody = blocking_http_get_call(&url).unwrap();
 
             server.close().unwrap();
 
-
-            let parsedjson: PaginatedResult<rustix_bl::datastore::User> = serde_json::from_str(&httpbody).unwrap();
-
+            let parsedjson: PaginatedResult<rustix_bl::datastore::User> =
+                serde_json::from_str(&httpbody).unwrap();
 
             assert_eq!(parsedjson.results.len(), 53);
         }
 
         let state = ParametersAll {
             top_users: ParametersTopUsers { n: 0 },
-            all_users: ParametersAllUsers { count_pars: ParametersAllUsersCount { searchterm: String::new() }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 1_000_000 } },
-            all_items: ParametersAllItems { count_pars: ParametersAllItemsCount { searchterm: String::new() }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
-            global_log: ParametersPurchaseLogGlobal { count_pars: ParametersPurchaseLogGlobalCount { millis_start: 0, millis_end: 0 }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
+            all_users: ParametersAllUsers {
+                count_pars: ParametersAllUsersCount {
+                    searchterm: String::new(),
+                },
+                pagination: ParametersPagination {
+                    start_inclusive: 0,
+                    end_exclusive: 1_000_000,
+                },
+            },
+            all_items: ParametersAllItems {
+                count_pars: ParametersAllItemsCount {
+                    searchterm: String::new(),
+                },
+                pagination: ParametersPagination {
+                    start_inclusive: 0,
+                    end_exclusive: 0,
+                },
+            },
+            global_log: ParametersPurchaseLogGlobal {
+                count_pars: ParametersPurchaseLogGlobalCount {
+                    millis_start: 0,
+                    millis_end: 0,
+                },
+                pagination: ParametersPagination {
+                    start_inclusive: 0,
+                    end_exclusive: 0,
+                },
+            },
             bills: ParametersBills {
                 count_pars: ParametersBillsCount {
                     start_inclusive: 0,
                     end_exclusive: 0,
                     scope_user_id: None,
                 },
-                pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 },
+                pagination: ParametersPagination {
+                    start_inclusive: 0,
+                    end_exclusive: 0,
+                },
             },
-            bill_detail_infos: ParametersBillDetails { timestamp_from: None, timestamp_to: None },
-            open_ffa_freebies: ParametersOpenFFAFreebies { pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
+            bill_detail_infos: ParametersBillDetails {
+                timestamp_from: None,
+                timestamp_to: None,
+            },
+            open_ffa_freebies: ParametersOpenFFAFreebies {
+                pagination: ParametersPagination {
+                    start_inclusive: 0,
+                    end_exclusive: 0,
+                },
+            },
             top_personal_drinks: ParametersTopPersonalDrinks { user_id: 0, n: 0 },
             personal_log: ParametersPurchaseLogPersonal {
                 count_pars: ParametersPurchaseLogPersonalCount {
@@ -1938,10 +2423,25 @@ mod tests {
                     millis_start: 0,
                     millis_end: 0,
                 },
-                pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 },
+                pagination: ParametersPagination {
+                    start_inclusive: 0,
+                    end_exclusive: 0,
+                },
             },
-            incoming_freebies: ParametersIncomingFreebies { count_pars: ParametersIncomingFreebiesCount { recipient_id: 0 }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
-            outgoing_freebies: ParametersOutgoingFreebies { count_pars: ParametersOutgoingFreebiesCount { donor_id: 0 }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
+            incoming_freebies: ParametersIncomingFreebies {
+                count_pars: ParametersIncomingFreebiesCount { recipient_id: 0 },
+                pagination: ParametersPagination {
+                    start_inclusive: 0,
+                    end_exclusive: 0,
+                },
+            },
+            outgoing_freebies: ParametersOutgoingFreebies {
+                count_pars: ParametersOutgoingFreebiesCount { donor_id: 0 },
+                pagination: ParametersPagination {
+                    start_inclusive: 0,
+                    end_exclusive: 0,
+                },
+            },
             personal_detail_infos: ParametersDetailInfoForUser { user_id: 0 },
         };
 
@@ -1950,12 +2450,14 @@ mod tests {
         };
 
         let query = serde_json::to_string(&state).unwrap();
-        let url = format!("{}{}/api/users?query={}", HOST_WITHOUTPORT, config.server_port, query);
+        let url = format!(
+            "{}{}/api/users?query={}",
+            HOST_WITHOUTPORT, config.server_port, query
+        );
 
         let httpbody = blocking_http_post_call(&url, &postjson).unwrap();
 
         server.close().unwrap();
-
 
         let parsedjson: ServerWriteResult = serde_json::from_str(&httpbody).unwrap();
 
@@ -1963,20 +2465,44 @@ mod tests {
         assert_eq!(parsedjson.error_message, None);
         assert!(parsedjson.content.is_some());
         let unpacked = parsedjson.content.unwrap();
-        assert!(unpacked.refreshed_data.AllUsers.as_object().unwrap().get("results").unwrap().as_array().is_some());
-        assert_eq!(unpacked.refreshed_data.AllUsers.as_object().unwrap().get("results").unwrap().as_array().unwrap().len(), 54);
-
+        assert!(
+            unpacked
+                .refreshed_data
+                .AllUsers
+                .as_object()
+                .unwrap()
+                .get("results")
+                .unwrap()
+                .as_array()
+                .is_some()
+        );
+        assert_eq!(
+            unpacked
+                .refreshed_data
+                .AllUsers
+                .as_object()
+                .unwrap()
+                .get("results")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .len(),
+            54
+        );
 
         {
             let query = serde_json::to_string(&params_for_user).unwrap();
-            let url = format!("{}{}/api/users/all?query={}", HOST_WITHOUTPORT, config.server_port, query);
+            let url = format!(
+                "{}{}/api/users/all?query={}",
+                HOST_WITHOUTPORT, config.server_port, query
+            );
 
             let httpbody = blocking_http_get_call(&url).unwrap();
 
             server.close().unwrap();
 
-
-            let parsedjson: PaginatedResult<rustix_bl::datastore::User> = serde_json::from_str(&httpbody).unwrap();
+            let parsedjson: PaginatedResult<rustix_bl::datastore::User> =
+                serde_json::from_str(&httpbody).unwrap();
 
             assert_eq!(parsedjson.results.len(), 54);
         }
@@ -1999,19 +2525,55 @@ mod tests {
 
         let state = ParametersAll {
             top_users: ParametersTopUsers { n: 0 },
-            all_users: ParametersAllUsers { count_pars: ParametersAllUsersCount { searchterm: String::new() }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 1_000_000 } },
-            all_items: ParametersAllItems { count_pars: ParametersAllItemsCount { searchterm: String::new() }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
-            global_log: ParametersPurchaseLogGlobal { count_pars: ParametersPurchaseLogGlobalCount { millis_start: 0, millis_end: 0 }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
+            all_users: ParametersAllUsers {
+                count_pars: ParametersAllUsersCount {
+                    searchterm: String::new(),
+                },
+                pagination: ParametersPagination {
+                    start_inclusive: 0,
+                    end_exclusive: 1_000_000,
+                },
+            },
+            all_items: ParametersAllItems {
+                count_pars: ParametersAllItemsCount {
+                    searchterm: String::new(),
+                },
+                pagination: ParametersPagination {
+                    start_inclusive: 0,
+                    end_exclusive: 0,
+                },
+            },
+            global_log: ParametersPurchaseLogGlobal {
+                count_pars: ParametersPurchaseLogGlobalCount {
+                    millis_start: 0,
+                    millis_end: 0,
+                },
+                pagination: ParametersPagination {
+                    start_inclusive: 0,
+                    end_exclusive: 0,
+                },
+            },
             bills: ParametersBills {
                 count_pars: ParametersBillsCount {
                     start_inclusive: 0,
                     end_exclusive: 0,
                     scope_user_id: None,
                 },
-                pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 },
+                pagination: ParametersPagination {
+                    start_inclusive: 0,
+                    end_exclusive: 0,
+                },
             },
-            bill_detail_infos: ParametersBillDetails { timestamp_from: None, timestamp_to: None },
-            open_ffa_freebies: ParametersOpenFFAFreebies { pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
+            bill_detail_infos: ParametersBillDetails {
+                timestamp_from: None,
+                timestamp_to: None,
+            },
+            open_ffa_freebies: ParametersOpenFFAFreebies {
+                pagination: ParametersPagination {
+                    start_inclusive: 0,
+                    end_exclusive: 0,
+                },
+            },
             top_personal_drinks: ParametersTopPersonalDrinks { user_id: 0, n: 0 },
             personal_log: ParametersPurchaseLogPersonal {
                 count_pars: ParametersPurchaseLogPersonalCount {
@@ -2019,10 +2581,25 @@ mod tests {
                     millis_start: 0,
                     millis_end: 0,
                 },
-                pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 },
+                pagination: ParametersPagination {
+                    start_inclusive: 0,
+                    end_exclusive: 0,
+                },
             },
-            incoming_freebies: ParametersIncomingFreebies { count_pars: ParametersIncomingFreebiesCount { recipient_id: 0 }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
-            outgoing_freebies: ParametersOutgoingFreebies { count_pars: ParametersOutgoingFreebiesCount { donor_id: 0 }, pagination: ParametersPagination { start_inclusive: 0, end_exclusive: 0 } },
+            incoming_freebies: ParametersIncomingFreebies {
+                count_pars: ParametersIncomingFreebiesCount { recipient_id: 0 },
+                pagination: ParametersPagination {
+                    start_inclusive: 0,
+                    end_exclusive: 0,
+                },
+            },
+            outgoing_freebies: ParametersOutgoingFreebies {
+                count_pars: ParametersOutgoingFreebiesCount { donor_id: 0 },
+                pagination: ParametersPagination {
+                    start_inclusive: 0,
+                    end_exclusive: 0,
+                },
+            },
             personal_detail_infos: ParametersDetailInfoForUser { user_id: 0 },
         };
 
@@ -2032,12 +2609,14 @@ mod tests {
         };
 
         let query = serde_json::to_string(&state).unwrap();
-        let url = format!("{}{}/api/purchases?query={}", HOST_WITHOUTPORT, config.server_port, query);
+        let url = format!(
+            "{}{}/api/purchases?query={}",
+            HOST_WITHOUTPORT, config.server_port, query
+        );
 
         let httpbody = blocking_http_post_call(&url, &postjson).unwrap();
 
         server.close().unwrap();
-
 
         let parsedjson: ServerWriteResult = serde_json::from_str(&httpbody).unwrap();
 

@@ -19,7 +19,10 @@ pub struct ImportedItem {
     pub price: u32,
 }
 
-fn get_user_by_name(store: &rustix_bl::datastore::Datastore, name: &str) -> Option<rustix_bl::datastore::User> {
+fn get_user_by_name(
+    store: &rustix_bl::datastore::Datastore,
+    name: &str,
+) -> Option<rustix_bl::datastore::User> {
     let v = store.users_searchhit_ids(name);
     if v.is_empty() {
         return None;
@@ -29,7 +32,10 @@ fn get_user_by_name(store: &rustix_bl::datastore::Datastore, name: &str) -> Opti
     }
 }
 
-fn get_item_by_name(store: &rustix_bl::datastore::Datastore, name: &str) -> Option<rustix_bl::datastore::Item> {
+fn get_item_by_name(
+    store: &rustix_bl::datastore::Datastore,
+    name: &str,
+) -> Option<rustix_bl::datastore::Item> {
     let v = store.items_searchhit_ids(name);
     if v.is_empty() {
         return None;
@@ -39,31 +45,53 @@ fn get_item_by_name(store: &rustix_bl::datastore::Datastore, name: &str) -> Opti
     }
 }
 
-pub fn import_users_into_store(backend: &mut rustix_bl::rustix_backend::RustixBackend, users: Vec<ImportedUser>) -> () {
+pub fn import_users_into_store(
+    backend: &mut rustix_bl::rustix_backend::RustixBackend,
+    users: Vec<ImportedUser>,
+) -> () {
     println!("Importing {} users into backend...", users.len());
     for import_user in users {
         //if nót already contained, add to list
-        let first_id: Option<rustix_bl::datastore::User> = get_user_by_name(&backend.datastore, &import_user.name);
+        let first_id: Option<rustix_bl::datastore::User> =
+            get_user_by_name(&backend.datastore, &import_user.name);
         if first_id.is_none() {
-            backend.apply(&rustix_event_shop::BLEvents::CreateUser { username: import_user.name.to_string() });
+            backend.apply(&rustix_event_shop::BLEvents::CreateUser {
+                username: import_user.name.to_string(),
+            });
             println!("Created new user {}...", import_user.name);
         }
-        let existing_user : rustix_bl::datastore::User = get_user_by_name(&backend.datastore, &import_user.name).unwrap();
+        let existing_user: rustix_bl::datastore::User =
+            get_user_by_name(&backend.datastore, &import_user.name).unwrap();
         //for every user in list, check if already contained (in that case, check if external_user_id is already set), update in that case
-        if existing_user.external_user_id.is_none() || !existing_user.external_user_id.unwrap().eq(&import_user.id) {
-            backend.apply(&rustix_event_shop::BLEvents::UpdateUser { user_id: existing_user.user_id, username: import_user.name.to_string(), is_billed: existing_user.is_billed, is_highlighted: existing_user.highlight_in_ui, external_user_id: Some(import_user.id) });
+        if existing_user.external_user_id.is_none()
+            || !existing_user.external_user_id.unwrap().eq(&import_user.id)
+        {
+            backend.apply(&rustix_event_shop::BLEvents::UpdateUser {
+                user_id: existing_user.user_id,
+                username: import_user.name.to_string(),
+                is_billed: existing_user.is_billed,
+                is_highlighted: existing_user.highlight_in_ui,
+                external_user_id: Some(import_user.id),
+            });
             println!("Updated user {}...", import_user.name);
         }
-
     }
 }
 
-pub fn import_items_into_store(backend: &mut rustix_bl::rustix_backend::RustixBackend, items: Vec<ImportedItem>) -> () {
+pub fn import_items_into_store(
+    backend: &mut rustix_bl::rustix_backend::RustixBackend,
+    items: Vec<ImportedItem>,
+) -> () {
     println!("Importing {} items into backend...", items.len());
     for import_item in items {
         //if nót already contained, add to list
-        let first_id: Option<rustix_bl::datastore::Item> = get_item_by_name(&backend.datastore, &import_item.name);
-        let cat : Option<String> = if import_item.category.trim().len() == 0 {None} else {Some(import_item.category.trim().to_string())} ;
+        let first_id: Option<rustix_bl::datastore::Item> =
+            get_item_by_name(&backend.datastore, &import_item.name);
+        let cat: Option<String> = if import_item.category.trim().len() == 0 {
+            None
+        } else {
+            Some(import_item.category.trim().to_string())
+        };
 
         if first_id.is_none() {
             backend.apply(&rustix_event_shop::BLEvents::CreateItem {
@@ -81,8 +109,6 @@ pub fn import_items_into_store(backend: &mut rustix_bl::rustix_backend::RustixBa
             });
             println!("Updated item {}...", import_item.name);
         }
-
-
     }
 }
 
@@ -100,7 +126,7 @@ pub fn load_users_json_file() -> Vec<ImportedUser> {
         return Vec::new();
     }
 
-    let json : Vec<ImportedUser> = serde_json::from_str(&contents).unwrap_or(Vec::new());
+    let json: Vec<ImportedUser> = serde_json::from_str(&contents).unwrap_or(Vec::new());
     return json;
 }
 
@@ -118,6 +144,6 @@ pub fn load_items_json_file() -> Vec<ImportedItem> {
         return Vec::new();
     }
 
-    let json : Vec<ImportedItem> = serde_json::from_str(&contents).unwrap_or(Vec::new());
+    let json: Vec<ImportedItem> = serde_json::from_str(&contents).unwrap_or(Vec::new());
     return json;
 }
