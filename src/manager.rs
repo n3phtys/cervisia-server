@@ -1,6 +1,5 @@
 use rand::{Rng, SeedableRng, StdRng};
 use rustix_bl;
-use rustix_bl::*;
 use rustix_bl::datastore::*;
 use rustix_bl::rustix_backend::*;
 use rustix_bl::rustix_event_shop;
@@ -10,9 +9,7 @@ use server::Backend;
 use server::RefreshedData;
 use std;
 use std::collections::*;
-use std::sync::RwLock;
 use std::vec::*;
-use std::ascii::AsciiExt;
 use typescriptify::TypeScriptifyTrait;
 
 #[derive(Serialize, Deserialize, TypeScriptify)]
@@ -238,7 +235,7 @@ pub trait ErrorUnwrap<T> {
 
 impl<T> ErrorUnwrap<T> for Option<T> {
     fn unwrap_or_error(self) -> Result<T, Box<MyNoneError>> {
-        if (self.is_some()) {
+        if self.is_some() {
             return Ok(self.unwrap());
         } else {
             return Err(Box::new(MyNoneError {}));
@@ -534,29 +531,29 @@ impl ServableRustix for ServableRustixImpl {
                     let x : &rustix_bl::datastore::Purchase = y;
                     match x {
                         &rustix_bl::datastore::Purchase::SpecialPurchase{
-                            ref unique_id,
-                            ref timestamp_epoch_millis,
-                            ref special_name,
+                            unique_id: _,
+                            timestamp_epoch_millis: _,
+                            special_name: _,
                             ref specialcost,
-                            ref consumer_id,
+                            consumer_id: _,
                         } => {
                             cost += specialcost.unwrap_or(0);
                         },
                         &rustix_bl::datastore::Purchase::SimplePurchase  {
-                            ref unique_id,
-                            ref timestamp_epoch_millis,
-                            ref item_id,
-                            ref consumer_id,
+                            unique_id: _,
+                            timestamp_epoch_millis: _,
+                            item_id: _,
+                            consumer_id: _,
                         } => {
                             //get price and add
                             cost += backend.datastore.items.get(x.get_item_id()).unwrap().cost_cents;
                         },
                         &rustix_bl::datastore::Purchase::FFAPurchase {
-                            ref unique_id,
-                            ref timestamp_epoch_millis,
-                            ref item_id,
-                            ref freeby_id,
-                            ref donor,
+                            unique_id: _,
+                            timestamp_epoch_millis: _,
+                            item_id: _,
+                            freeby_id: _,
+                            donor: _,
                         } => {
                             //get price and add
                             cost += backend.datastore.items.get(x.get_item_id()).unwrap().cost_cents;
@@ -581,10 +578,10 @@ impl ServableRustix for ServableRustixImpl {
                     let allmap = bill.unwrap();
                     match allmap.finalized_data.user_consumption.get(&param.user_id) {
                         Some(billuserinstance) => {
-                            for (day, dayinstance) in &billuserinstance.per_day {
+                            for (_, dayinstance) in &billuserinstance.per_day {
                                 for (item_id, count) in &dayinstance.personally_consumed {
                                     let cost_once : u32 = allmap.finalized_data.all_items.get(&item_id).unwrap().cost_cents;
-                                    previouscost += (cost_once * item_id);
+                                    previouscost += cost_once * count;
                                 }
                             }
                         },
@@ -799,16 +796,16 @@ impl ServableRustix for ServableRustixImpl {
 
                 return Ok(b);
             },
-            AllUsersCount(param) => {
+            AllUsersCount(_param) => {
                 panic!("Not supported")
             },
-            AllItemsCount(param) => {
+            AllItemsCount(_param) => {
                 panic!("Not supported")
             },
-            PurchaseLogGlobalCount(param) => {
+            PurchaseLogGlobalCount(_param) => {
                 panic!("Not supported")
             },
-            BillsCount(param) => {
+            BillsCount(_param) => {
                 panic!("Not supported")
             },
             OpenFFAFreebies(param) => {
@@ -828,10 +825,10 @@ impl ServableRustix for ServableRustixImpl {
                 };
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
             },
-            PurchaseLogPersonalCount(param) => {
+            PurchaseLogPersonalCount(_param) => {
                 panic!("Not supported")
             },
-            IncomingFreebiesCount(param) => {
+            IncomingFreebiesCount(_param) => {
                 panic!("Not supported")
             },
             IncomingFreebies(param) => {
@@ -857,13 +854,13 @@ impl ServableRustix for ServableRustixImpl {
                 };
                 return Ok(serde_json::from_str(&serde_json::to_string(&result)?)?);
             },
-            OutgoingFreebiesCount(param) => {
+            OutgoingFreebiesCount(_param) => {
                 panic!("Not supported")
             },
             OutgoingFreebies(param) => {
                 let mut xs: Vec<Freeby> = Vec::new();
 
-                for (key, value) in &backend.datastore.open_freebies {
+                for (_, value) in &backend.datastore.open_freebies {
                     for fb in value {
                         if fb.get_donor() == param.count_pars.donor_id {
                             xs.push(fb.clone());
@@ -1051,7 +1048,7 @@ impl ServableRustix for ServableRustixImpl {
             rustix_event_shop::BLEvents::MakeSimplePurchase { user_id, item_id, timestamp } => {
                 //make simple (non-ffa, non-special) purchase
 
-                let b = &mut backend.purchase(user_id, item_id, timestamp);
+                let _ = &mut backend.purchase(user_id, item_id, timestamp);
 
                 //refresh 5 values:
                 //refresh top users
@@ -1093,7 +1090,7 @@ impl ServableRustix for ServableRustixImpl {
             rustix_event_shop::BLEvents::UndoPurchase { unique_id } => {
                 //make simple (non-ffa, non-special) purchase
 
-                let b = &mut backend.undo_purchase(unique_id);
+                let _ = &mut backend.undo_purchase(unique_id);
 
                 //refresh 5 values:
                 //refresh top users
@@ -1230,7 +1227,7 @@ impl ServableRustix for ServableRustixImpl {
                     OutgoingFreebies: outgoing,
                 })
             },
-            a @ rustix_event_shop::BLEvents::MakeSpecialPurchase { .. } => {
+            _a @ rustix_event_shop::BLEvents::MakeSpecialPurchase { .. } => {
                 panic!("MakeSpecialPurchase supported at the moment (use CartPurchase instead!)")
             },
             a @ rustix_event_shop::BLEvents::CreateBill { .. } => {
@@ -1389,7 +1386,7 @@ impl ServableRustix for ServableRustixImpl {
                 })
             },
             rustix_event_shop::BLEvents::MakeShoppingCartPurchase { user_id, specials, item_ids, timestamp } => {
-                let b = &mut backend.cart_purchase(user_id, specials, item_ids, timestamp);
+                let _b = &mut backend.cart_purchase(user_id, specials, item_ids, timestamp);
 
                 //refresh 5 values:
                 //refresh top users
@@ -1434,7 +1431,7 @@ impl ServableRustix for ServableRustixImpl {
 
 
 pub fn fill_backend_with_medium_test_data(backend: &mut Backend) -> () {
-    let mut back = backend;
+    let back = backend;
 
     (*back).create_user("Gruin".to_string());
     (*back).create_user("Vall".to_string());
@@ -1474,7 +1471,7 @@ pub fn fill_backend_with_medium_test_data(backend: &mut Backend) -> () {
 }
 
 pub fn fill_backend_with_large_test_data(backend: &mut Backend) -> () {
-    let mut back = backend;
+    let back = backend;
 
     (*back).create_user("Gruin".to_string());
     (*back).create_user("Vall".to_string());

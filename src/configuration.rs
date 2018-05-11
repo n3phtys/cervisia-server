@@ -1,19 +1,8 @@
-use config::*;
-use config;
-use iron;
-use notify::{DebouncedEvent, RecommendedWatcher, RecursiveMode, Watcher};
-use rustix_bl;
-use server::Backend;
 use std;
 use std::env;
 use std::fs::File;
 use std::io;
 use std::io::Read;
-use std::io::Write;
-use std::sync::{Arc, RwLock};
-use std::sync::mpsc::channel;
-use std::thread;
-use std::time::Duration;
 use toml;
 
 
@@ -85,10 +74,10 @@ fn get_env_u16(key: &str, def: u16) -> u16 {
             let x = s.parse::<u16>();
             return match x {
                 Ok(v) => v,
-                Err(e) => def,
+                Err(_) => def,
             };
         },
-        Err(e) => {
+        Err(_) => {
             return def;
         },
     }
@@ -101,10 +90,10 @@ fn get_env_bool(key: &str, def : Option<bool>) -> Option<bool> {
             return match x {
                 Ok(true) => Some(true),
                 Ok(false) => Some(false),
-                Err(e) => def,
+                Err(_) => def,
             };
         },
-        Err(e) => {
+        Err(_) => {
             return def;
         },
     }
@@ -140,7 +129,7 @@ trait Loadable where Self: std::marker::Sized {
 
 impl Loadable for ServerConfig {
     fn from_path(path: &std::path::PathBuf) -> Result<Self, io::Error> {
-        let mut file_raw = File::open(path);
+        let file_raw = File::open(path);
 
         if file_raw.is_err() {
             return Ok(ServerConfig::inline_default_config())
@@ -185,81 +174,4 @@ pub fn path_to_config_file_and_mkdirs() -> std::path::PathBuf {
         //    str_incl.as_bytes()).unwrap();
     }
     return path2;
-}
-
-
-fn assert_default_settings_parse() -> bool {
-    let str_incl = include_str!("SettingsDefault.toml");
-    let decoded: Result<ServerConfig, _> = toml::from_str(&str_incl);
-    return decoded.is_ok();
-}
-
-pub fn watch_config_changes<F>(path_to_config_file: &std::path::PathBuf, function_to_execute: F) -> ()
-    where F: Fn(&ServerConfig, Option<iron::Listening>, Option<Backend>) -> iron::Listening {
-    println!("Here");
-    //assert that default is right
-    if !assert_default_settings_parse() {
-        panic!("SettingsDefault.toml is not parsing!");
-    }
-
-
-    println!("There");
-    // Create a channel to receive the events.
-    let (tx, rx) = channel();
-
-    // Automatically select the best implementation for your platform.
-    // You can also access each implementation directly e.g. INotifyWatcher.
-    let mut watcher: RecommendedWatcher = Watcher::new(tx, Duration::from_secs(2)).unwrap();
-
-
-    debug!("Spawned watcher");
-
-
-    println!("Also here");
-
-    // Add a path to be watched. All files and directories at that path and
-    // below will be monitored for changes.
-
-    let mut old_server: Option<iron::Listening> = None;
-
-
-    let config_result = ServerConfig::from_path(path_to_config_file);
-
-    if let Ok(config) = config_result {
-        let s = function_to_execute(&config, old_server, None);
-        old_server = Some(s);
-    } else {
-        println!("Error during Config parsing: {:?}", config_result);
-    }
-
-
-    watcher
-        .watch(path_to_config_file, RecursiveMode::NonRecursive);
-
-    // This is a simple loop, but you may want to use more complex logic here,
-    // for example to handle I/O.
-    loop {
-        debug!("Loop");
-
-        match rx.recv() {
-            Ok(DebouncedEvent::Write(_)) => {
-                println!(" * Settings.toml changed; refreshing configuration ...");
-
-                let config_result = ServerConfig::from_path(path_to_config_file);
-
-                if let Ok(config) = config_result {
-                    let s = function_to_execute(&config, old_server, None);
-                    old_server = Some(s);
-                } else {
-                    println!("Error during Config parsing: {:?}", config_result);
-                }
-            }
-
-            Err(e) => println!("watch error: {:?}", e),
-
-            _ => {
-                // Ignore event
-            }
-        }
-    }
 }

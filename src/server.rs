@@ -1,7 +1,6 @@
+#![allow(non_snake_case)]
+
 use iron::prelude::*;
-use iron::{BeforeMiddleware, AfterMiddleware, typemap};
-use time;
-use time::precise_time_ns;
 use std::path::Path;
 use chrono::prelude::*;
 use std::collections::*;
@@ -10,45 +9,31 @@ use std::error::Error;
 use iron::Iron;
 use staticfile::Static;
 use mount::Mount;
-use hello_world;
-use ResponseTime;
 use configuration::*;
 use iron;
 use rustix_bl;
 use serde_json;
-use billformatter;
 use std;
 use rustix_bl::rustix_event_shop;
-use std::sync::{Arc, RwLock};
-use std::thread;
 use importer::*;
 use manager::ParametersAll;
 use reqwest;
 use configuration;
 use std::io::Read;
-use iron::Handler;
 use serde;
-use chrono::prelude::*;
 
-use iron::prelude::*;
-use iron::status;
 use router::Router;
 use responsehandlers::*;
-use params;
-use persistent;
 use persistent::State;
 use iron::typemap::Key;
 use rustix_bl::rustix_backend::WriteBackend;
-use manager::fill_backend_with_medium_test_data;
 use manager::fill_backend_with_large_test_data;
-use rustix_bl::datastore::DatastoreQueries;
 use typescriptify::TypeScriptifyTrait;
 use manager;
 use mail;
 use manager::*;
 
 use params::{Params, Value};
-use importer;
 
 pub type Backend = rustix_bl::rustix_backend::RustixBackend;
 
@@ -131,7 +116,7 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
 
 
     //let endpoints = typescript_definition_string();
-    router.get("/endpoints", |req: &mut iron::request::Request| Ok(Response::with((iron::status::Ok, typescript_definition_string()))), "endpoints");
+    router.get("/endpoints", |_: &mut iron::request::Request| Ok(Response::with((iron::status::Ok, typescript_definition_string()))), "endpoints");
 
 
     router.get("/users/all", all_users, "allusers");
@@ -187,8 +172,6 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     router.post("/giveout/count", create_count_freeby, "createcountfreeby");
     router.post("/giveout/ffa", create_ffa_freeby, "createffafreeby");
 
-    router.get("/helloworld", hello_world, "helloworld");
-
 
     let mut mount = Mount::new();
 
@@ -201,7 +184,7 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
         let mut backend = backend.unwrap_or(if config.use_persistence {
             //mkdir for database
             let db_file_dir = std::path::Path::new(&config.persistence_file_path);
-            std::fs::create_dir_all(db_file_dir);
+            std::fs::create_dir_all(db_file_dir).expect("could not create database directory!");
             let mut b = rustix_bl::build_persistent_backend(db_file_dir);
             let c = b.reload().unwrap();
             if c == 0 && fill && config.use_mock_data {
@@ -218,7 +201,7 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
             b
         });
 
-        if (!config.use_mock_data) {
+        if !config.use_mock_data {
             import_users_into_store(&mut backend, load_users_json_file());
             import_items_into_store(&mut backend, load_items_json_file())
         }
@@ -235,7 +218,7 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
 
     let url = format!("{}:{}", config.host, config.server_port);
     debug!("Starting server under host and port = {}", &url);
-    let mut serv = Iron::new(mount).http(url).unwrap();
+    let serv = Iron::new(mount).http(url).unwrap();
     return serv;
 }
 
@@ -392,7 +375,7 @@ pub mod responsehandlers {
 
     fn extract_body(req: &mut iron::request::Request) -> String {
         let mut s = String::new();
-        let number_of_bytes = req.body.read_to_string(&mut s);
+        let _number_of_bytes = req.body.read_to_string(&mut s);
         return s;
     }
 
@@ -411,6 +394,7 @@ pub mod responsehandlers {
 
                 let cur = current_time_millis();
 
+                use rustix_bl::datastore::DatastoreQueries;
                 if match dat.datastore.get_purchase_timestamp(parsed_body.unique_id) {
                     Some(ref t) => {
                         cur < t + (30i64 * 1000i64)
@@ -470,8 +454,7 @@ pub mod responsehandlers {
                 debug!("json queried");
                 let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
 
-                let cur = current_time_millis();
-
+                use rustix_bl::datastore::DatastoreQueries;
                 if dat.datastore.get_purchase_timestamp(parsed_body.unique_id).is_none() {
                     debug!("purchase not found");
                     return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&ServerWriteResult {
@@ -559,7 +542,7 @@ pub mod responsehandlers {
             match user_id {
                 Some(uid) => {
                     let user_opt = dat.datastore.users.get(&uid);
-                    if (user_opt.is_some()) {
+                    if user_opt.is_some() {
                         let user = user_opt.unwrap();
                         info!("Purchase by {} (id = {}): item {} with cost of {} cents", user.username, user.user_id, item.name, item.cost_cents);
                     } else {
@@ -589,7 +572,7 @@ pub mod responsehandlers {
 
                 let mut item_ids: Vec<u32> = Vec::new();
                 for kv in parsed_body.items {
-                    for i in 0..kv.value {
+                    for _i in 0..kv.value {
                         item_ids.push(kv.key);
                     }
                 }
@@ -1166,6 +1149,7 @@ pub mod responsehandlers {
 
                 match result {
                     Ok(sux) => {
+                        use rustix_bl::datastore::DatastoreQueries;
                         let bill: rustix_bl::datastore::Bill = dat.datastore.get_bill(parsed_body.timestamp_from, parsed_body.timestamp_to).unwrap().clone();
 
                         match parsed_body.limit_to_user {
@@ -1341,7 +1325,7 @@ pub mod responsehandlers {
 
                 match result {
                     Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
                         total_count: 0,
                         from: 0,
                         to: 0,
@@ -1366,7 +1350,7 @@ pub mod responsehandlers {
 
                 match result {
                     Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
                         total_count: 0,
                         from: 0,
                         to: 0,
@@ -1391,7 +1375,7 @@ pub mod responsehandlers {
 
                 match result {
                     Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
                         total_count: 0,
                         from: 0,
                         to: 0,
@@ -1416,7 +1400,7 @@ pub mod responsehandlers {
 
                 match result {
                     Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
                         total_count: 0,
                         from: 0,
                         to: 0,
@@ -1442,7 +1426,7 @@ pub mod responsehandlers {
 
                 match result {
                     Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
                         total_count: 0,
                         from: 0,
                         to: 0,
@@ -1467,7 +1451,7 @@ pub mod responsehandlers {
 
                 match result {
                     Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
                         total_count: 0,
                         from: 0,
                         to: 0,
@@ -1492,7 +1476,7 @@ pub mod responsehandlers {
 
                 match result {
                     Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
                         total_count: 0,
                         from: 0,
                         to: 0,
@@ -1517,7 +1501,7 @@ pub mod responsehandlers {
 
                 match result {
                     Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
                         total_count: 0,
                         from: 0,
                         to: 0,
@@ -1544,7 +1528,7 @@ pub mod responsehandlers {
 
                 match result {
                     Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::Bill> {
+                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::Bill> {
                         total_count: 0,
                         from: 0,
                         to: 0,
@@ -1571,7 +1555,7 @@ pub mod responsehandlers {
 
                 match result {
                     Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<DetailedBill> {
+                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<DetailedBill> {
                         total_count: 0,
                         from: 0,
                         to: 0,
@@ -1596,7 +1580,7 @@ pub mod responsehandlers {
 
                 match result {
                     Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
                         total_count: 0,
                         from: 0,
                         to: 0,
@@ -1621,7 +1605,7 @@ pub mod responsehandlers {
 
                 match result {
                     Ok(sux) => return Ok(Response::with((iron::status::Ok, serde_json::to_string(&sux).unwrap()))),
-                    Err(err) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
+                    Err(_) => return Ok(Response::with((iron::status::Conflict, serde_json::to_string(&PaginatedResult::<rustix_bl::datastore::User> {
                         total_count: 0,
                         from: 0,
                         to: 0,
@@ -1648,7 +1632,7 @@ pub fn execute_cervisia_server(with_config: &ServerConfig,
 
     info!("Building server");
 
-    let mut server = build_server(with_config, backend);
+    let server = build_server(with_config, backend);
 
     info!("Having built server");
 
@@ -1735,7 +1719,7 @@ pub fn blocking_http_get_call(url: &str) -> Result<String, reqwest::Error> {
     debug!("Headers:\n{}", res.headers());
 
     let mut s: String = "".to_string();
-    let size = res.read_to_string(&mut s);
+    let _size = res.read_to_string(&mut s);
 
     debug!("Body:\n{}", s);
 
@@ -1755,7 +1739,7 @@ pub fn blocking_http_post_call<T: serde::ser::Serialize>(url: &str, content: &T)
     debug!("Headers:\n{}", res.headers());
 
     let mut s: String = "".to_string();
-    let size = res.read_to_string(&mut s);
+    let _size = res.read_to_string(&mut s);
 
     debug!("Body:\n{}", s);
 

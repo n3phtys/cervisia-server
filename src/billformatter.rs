@@ -2,30 +2,9 @@ use rustix_bl::datastore::Bill;
 use rustix_bl;
 use chrono::prelude::*;
 use time;
-use chrono::offset::LocalResult;
 use std;
 use std::collections::hash_map::DefaultHasher;
-use std::fs::File;
 use std::hash::Hasher;
-
-//following template placeholders will be string-replaced inside the configured template_for_csv_line when calling format_as_sewobe_csv()
-
-static TEMPLATE_PLACEHOLDER_MEMBER_NR: &'static str = "TEMPLATE_PLACEHOLDER_MEMBER_NR";
-static TEMPLATE_PLACEHOLDER_BILL_NR: &'static str = "TEMPLATE_PLACEHOLDER_BILL_NR";
-static TEMPLATE_PLACEHOLDER_BILL_TITLE: &'static str = "TEMPLATE_PLACEHOLDER_BILL_TITLE";
-static TEMPLATE_PLACEHOLDER_BILL_DATE: &'static str = "TEMPLATE_PLACEHOLDER_BILL_DATE";
-static TEMPLATE_PLACEHOLDER_POSITION_NR: &'static str = "TEMPLATE_PLACEHOLDER_POSITION_NR";
-static TEMPLATE_PLACEHOLDER_POSITION_NAME: &'static str = "TEMPLATE_PLACEHOLDER_POSITION_NAME";
-static TEMPLATE_PLACEHOLDER_POSITION_DESCRIPTION: &'static str = "TEMPLATE_PLACEHOLDER_POSITION_DESCRIPTION";
-static TEMPLATE_PLACEHOLDER_AMOUNT: &'static str = "TEMPLATE_PLACEHOLDER_AMOUNT";
-static TEMPLATE_PLACEHOLDER_PRICE_PER_UNIT: &'static str = "TEMPLATE_PLACEHOLDER_PRICE_PER_UNIT";
-static TEMPLATE_PLACEHOLDER_BILLING_DATE: &'static str = "TEMPLATE_PLACEHOLDER_BILLING_DATE";
-static TEMPLATE_PLACEHOLDER_DUE_DATE: &'static str = "TEMPLATE_PLACEHOLDER_DUE_DATE";
-static TEMPLATE_PLACEHOLDER_POSITION_TERMINATION_DATE: &'static str = "TEMPLATE_PLACEHOLDER_POSITION_TERMINATION_DATE";
-//unused static TEMPLATE_PLACEHOLDER_TAX_RATE: &'static str = "TEMPLATE_PLACEHOLDER_TAX_RATE";
-static TEMPLATE_PLACEHOLDER_REMARK: &'static str = "TEMPLATE_PLACEHOLDER_REMARK";
-//unused static TEMPLATE_PLACEHOLDER_BOOKKEEPING_ACCOUNT: &'static str = "TEMPLATE_PLACEHOLDER_BOOKKEEPING_ACCOUNT";
-//unused static TEMPLATE_PLACEHOLDER_SUB_BOOKKEEPING_ACCOUNT: &'static str = "TEMPLATE_PLACEHOLDER_SUB_BOOKKEEPING_ACCOUNT";
 
 
 pub trait BillFormatting {
@@ -413,7 +392,7 @@ impl BillFormatting for Bill {
 
     fn format_as_personalized_documentation(&self, user_id: &u32) -> Vec<Vec<String>> {
         let mut result: Vec<Vec<String>> = Vec::new();
-        let timestamp_to: i64 = self.timestamp_to;
+        let _timestamp_to: i64 = self.timestamp_to;
         let timestamp_from: i64 = self.timestamp_from;
 
         //for every user
@@ -428,7 +407,7 @@ impl BillFormatting for Bill {
 
             if users.get(user_id).is_some() && users.get(user_id).unwrap().external_user_id.is_some() {
                 let external_user_id: String = users.get(user_id).unwrap().clone().external_user_id.unwrap().to_string();
-                let mut position_index = 0u16;
+                let mut _position_index = 0u16;
                 for day in &consumption.per_day.in_order_keys() {
                     let daycontent = consumption.per_day.get(day).unwrap();
 
@@ -440,18 +419,18 @@ impl BillFormatting for Bill {
                         let count = daycontent.personally_consumed.get(item_id_purchase).unwrap();
                         let item: rustix_bl::datastore::Item = items.get(item_id_purchase).unwrap().clone();
                         result.push(OversightCSVLine::normal_purchase(users.get(user_id).unwrap().username.to_string(), external_user_id.to_string(), is_billed, item.name, *count, item.cost_cents as i32, day_timestamp).fmt());
-                        position_index += 1;
+                        _position_index += 1;
                     }
                     for special in &daycontent.specials_consumed {
                         result.push(OversightCSVLine::special_purchase(users.get(user_id).unwrap().username.to_string(), external_user_id.to_string(), is_billed, special.name.to_string(), (special.price) as i32, day_timestamp).fmt());
-                        position_index += 1;
+                        _position_index += 1;
                     }
 
                     for item_id_ffa in &daycontent.ffa_giveouts.in_order_keys() {
                         let count = daycontent.ffa_giveouts.get(item_id_ffa).unwrap();
                         let item: rustix_bl::datastore::Item = items.get(item_id_ffa).unwrap().clone();
                         result.push(OversightCSVLine::ffa_giveout(users.get(user_id).unwrap().username.to_string(), external_user_id.to_string(), is_billed, item.name, *count, item.cost_cents as i32, day_timestamp).fmt());
-                        position_index += 1;
+                        _position_index += 1;
                     }
 
                     for other_user_id in &daycontent.giveouts_to_user_id.in_order_keys() {
@@ -467,11 +446,11 @@ impl BillFormatting for Bill {
                         //if budget given or gotten > 0, also add to bill
                         if budget_given > 0 {
                             result.push(OversightCSVLine::budget_outgoing(users.get(user_id).unwrap().username.to_string(), external_user_id.to_string(), is_billed, budget_given as i32, day_timestamp, other_user_name.to_string(), other_user_id.to_string()).fmt());
-                            position_index += 1;
+                            _position_index += 1;
                         }
                         if budget_gotten > 0 {
                             result.push(OversightCSVLine::budget_incoming(users.get(user_id).unwrap().username.to_string(), external_user_id.to_string(), is_billed, budget_gotten as i32, day_timestamp, other_user_name.to_string(), other_user_id.to_string()).fmt());
-                            position_index += 1;
+                            _position_index += 1;
                         }
 
 
@@ -480,7 +459,7 @@ impl BillFormatting for Bill {
                             let count = paid_for.count_giveouts_used.get(item_id).unwrap();
                             let item: rustix_bl::datastore::Item = items.get(&item_id).unwrap().clone();
                             result.push(OversightCSVLine::count_giveout_outgoing(users.get(user_id).unwrap().username.to_string(), external_user_id.to_string(), is_billed, item.name, *count, item.cost_cents as i32, day_timestamp,  other_user_name.to_string(), other_user_id.to_string()).fmt());
-                            position_index += 1;}
+                            _position_index += 1;}
                     }
 
 
@@ -497,7 +476,7 @@ impl BillFormatting for Bill {
 
     fn list_of_user_ids(&self) -> Vec<u32> {
         let mut v: Vec<u32> = Vec::new();
-        for (key, value) in &self.finalized_data.all_users {
+        for (key, _) in &self.finalized_data.all_users {
             v.push(*key);
         }
         return v;

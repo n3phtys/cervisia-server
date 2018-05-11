@@ -1,11 +1,8 @@
-use manager::ServableRustix;
-use manager::ServableRustixImpl;
 use rustix_bl;
 use rustix_bl::datastore::DatastoreQueries;
 use rustix_bl::rustix_backend::WriteBackend;
 use rustix_bl::rustix_event_shop;
 use serde_json;
-use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 
@@ -91,7 +88,7 @@ pub fn import_items_into_store(backend: &mut rustix_bl::rustix_backend::RustixBa
 
 pub fn load_users_json_file() -> Vec<ImportedUser> {
     let filename = "./users.json";
-    let mut f_opt = File::open(filename);
+    let f_opt = File::open(filename);
     if f_opt.is_err() {
         return Vec::new();
     }
@@ -103,13 +100,13 @@ pub fn load_users_json_file() -> Vec<ImportedUser> {
         return Vec::new();
     }
 
-    let mut json : Vec<ImportedUser> = serde_json::from_str(&contents).unwrap_or(Vec::new());
+    let json : Vec<ImportedUser> = serde_json::from_str(&contents).unwrap_or(Vec::new());
     return json;
 }
 
 pub fn load_items_json_file() -> Vec<ImportedItem> {
     let filename = "./items.json";
-    let mut f_opt = File::open(filename);
+    let f_opt = File::open(filename);
     if f_opt.is_err() {
         return Vec::new();
     }
@@ -121,6 +118,6 @@ pub fn load_items_json_file() -> Vec<ImportedItem> {
         return Vec::new();
     }
 
-    let mut json : Vec<ImportedItem> = serde_json::from_str(&contents).unwrap_or(Vec::new());
+    let json : Vec<ImportedItem> = serde_json::from_str(&contents).unwrap_or(Vec::new());
     return json;
 }

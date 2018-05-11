@@ -1,13 +1,11 @@
 use configuration::*;
-use lettre::{EmailAddress, EmailTransport, SimpleSendableEmail, SmtpTransport};
+use lettre::{EmailTransport, SimpleSendableEmail, SmtpTransport};
 use lettre;
 use lettre::SendableEmail;
 use lettre::smtp::authentication::{Credentials, Mechanism};
 use lettre::smtp::client::net::*;
 use lettre::smtp::ClientSecurity;
 use lettre::smtp::ConnectionReuseParameters;
-use lettre::smtp::extension::ClientId;
-use lettre::smtp::SUBMISSION_PORT;
 use lettre_email::*;
 use mime;
 use native_tls::TlsConnector;
@@ -17,7 +15,6 @@ use std::fs::File;
 use std::hash::Hasher;
 use std::io::{Seek, Write};
 use std::path::Path;
-use time;
 use uuid::Uuid;
 use zip::result::ZipResult;
 use zip::write::{FileOptions, ZipWriter};
@@ -107,7 +104,6 @@ pub fn send_mail(receiver_email: &str, subject: &str, body: &str, attachments: &
                 let uuid_str = format!("{}", my_uuid);
 
 
-                let mut email_builder = SimpleEmail::default();
 
                 info!("Building email begin");
 
@@ -141,10 +137,8 @@ Content-Disposition: attachment;
 
 
 
-                //let email = email_result.unwrap();
-
                 let attachments_size = string_size(attachments);
-                let email : SimpleSendableEmail = if false /*&& !is_too_large_for_inline(attachments)*/ {
+                let _email : SimpleSendableEmail = if false /*&& !is_too_large_for_inline(attachments)*/ {
                     let email_string: String = format!("Subject: {}
 To: {}
 From: {}
@@ -226,7 +220,7 @@ Content-Type: text/plain; charset=utf-8
 
                     let email = EmailBuilder::new()
                         // Addresses can be specified by the tuple (email, alias)
-                        .to((receiver_email.to_string()))
+                        .to(receiver_email.to_string())
                         // ... or by an address only
                         .from(config.sender_email_address.to_string())
                         .subject(subject)
