@@ -4,3 +4,5 @@ rust:
 script:
   - cargo build --verbose --all
   - cargo test --verbose --all
+after_success:
+  - curl -H "Content-Type: application/json" --data '{"build": true}' -X POST https://registry.hub.docker.com/u/n3phtys/cervisia-container/trigger/$docker_trigger_token/
