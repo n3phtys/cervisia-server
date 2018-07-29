@@ -32,6 +32,7 @@ use responsehandlers::*;
 use router::Router;
 use rustix_bl::rustix_backend::WriteBackend;
 use typescriptify::TypeScriptifyTrait;
+use billformatter::get_date_today;
 
 use params::{Params, Value};
 
@@ -1473,7 +1474,7 @@ pub mod responsehandlers {
                                     Utc::now().format("%d.%m.%Y")
                                 );
                                 // construct csv to attach to mail
-                                let body_a_cells = bill.format_as_sewobe_csv();
+                                let body_a_cells = bill.format_as_sewobe_csv(get_date_today());
                                 // construct total list for all users
                                 let body_b_cells = bill.format_as_documentation();
 

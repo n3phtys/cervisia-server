@@ -8,7 +8,7 @@ use time;
 
 pub trait BillFormatting {
     //takes configuration and outputs a sewobe csv string
-    fn format_as_sewobe_csv(&self) -> Vec<Vec<String>>;
+    fn format_as_sewobe_csv(&self, date_today: i64) -> Vec<Vec<String>>;
 
     //outputs reduced bill string for one specific person
     fn format_as_personalized_documentation(&self, user_id: &u32) -> Vec<Vec<String>>;
@@ -322,6 +322,16 @@ impl OversightCSVLine {
     }
 }
 
+fn ms_to_day_month_str(timestamp_from: i64) -> String {
+    let utc_timestamp = Utc.timestamp(timestamp_from / 1000, 0);
+    return utc_timestamp.format(DATE_FORMAT_STRING_VERY_SHORT).to_string();
+}
+
+pub fn get_date_today() -> i64 {
+    let millis: i64 = time::get_time().sec as i64;
+    return millis;
+}
+
 impl SewobeCSVLine {
     //TODO: should get an export date, or not? or a finalization date? to calculate from there
     //TODO: remark should contain FROM and TO as readable date
@@ -334,11 +344,14 @@ impl SewobeCSVLine {
         position_index: u16,
         position_count: u32,
         position_price_per_unit: i32,
+        date_today: i64,
     ) -> Self {
         let utc_timestamp_from = Utc.timestamp(timestamp_from / 1000, 0);
         let utc_timestamp_to = Utc.timestamp(timestamp_to / 1000, 0);
+        let utc_timestamp_today = Utc.timestamp(date_today / 1000, 0);
 
-        let billing_creation_date = utc_timestamp_to.clone(); //TODO: replace by first export date
+        //bill is due based on export day
+        let billing_creation_date = utc_timestamp_today.clone();
 
         let bill_id: String =
             billing_creation_date.format("%y%m%d%S").to_string() + external_user_id;
@@ -427,6 +440,7 @@ impl SewobeCSVLine {
     }
 }
 
+static DATE_FORMAT_STRING_VERY_SHORT: &'static str = "%d.%m.";
 static DATE_FORMAT_STRING: &'static str = "%d.%m.%Y";
 static DATE_FORMAT_STRING_SHORT: &'static str = "%d.%m.%y";
 
@@ -454,7 +468,7 @@ impl<T> InOrderableusize for std::collections::HashMap<usize, T> {
 }
 
 impl BillFormatting for Bill {
-    fn format_as_sewobe_csv(&self) -> Vec<Vec<String>> {
+    fn format_as_sewobe_csv(&self, date_today: i64) -> Vec<Vec<String>> {
         let mut result: Vec<Vec<String>> = Vec::new();
         let timestamp_to: i64 = self.timestamp_to;
         let timestamp_from: i64 = self.timestamp_from;
@@ -482,6 +496,10 @@ impl BillFormatting for Bill {
                 let mut position_index = 0u16;
                 for day in &consumption.per_day.in_order_keys() {
                     let daycontent = consumption.per_day.get(day).unwrap();
+                    let millis_of_day = timestamp_from + (*day as i64 * (1000i64 * 60i64 * 60i64 * 24i64));
+                    let day_suffix = format!(" {}", ms_to_day_month_str(millis_of_day) );
+
+
                     //for every item
 
                     for item_id_purchase in &daycontent.personally_consumed.in_order_keys() {
@@ -497,10 +515,11 @@ impl BillFormatting for Bill {
                                 timestamp_to,
                                 &external_user_id,
                                 &item.name,
-                                "Selbst gekauft",
+                                &format!("Selbst gekauft{}", &day_suffix),
                                 position_index,
                                 *count,
                                 item.cost_cents as i32,
+                                date_today,
                             ).fmt(),
                         );
                         position_index += 1;
@@ -512,10 +531,11 @@ impl BillFormatting for Bill {
                                 timestamp_to,
                                 &external_user_id,
                                 &special.name,
-                                "Speziell abgestrichen",
+                                &format!("Speziell abgestrichen{}" , &day_suffix),
                                 position_index,
                                 1,
                                 special.price as i32,
+                                date_today,
                             ).fmt(),
                         );
                         position_index += 1;
@@ -531,10 +551,11 @@ impl BillFormatting for Bill {
                                 timestamp_to,
                                 &external_user_id,
                                 &item.name,
-                                "An alle ausgegeben",
+                                &format!("An alle ausgegeben{}", &day_suffix),
                                 position_index,
                                 *count,
                                 item.cost_cents as i32,
+                                date_today,
                             ).fmt(),
                         );
                         position_index += 1;
@@ -558,12 +579,13 @@ impl BillFormatting for Bill {
                                     &external_user_id,
                                     &format!("Guthaben verschenkt an {}", other_user.username),
                                     &format!(
-                                        "Guthaben verbraucht: {} Cents (intern verrechnet)",
-                                        budget_given
+                                        "Guthaben verbraucht: {} Cents (intern verrechnet){}",
+                                        budget_given, day_suffix
                                     ),
                                     position_index,
                                     1,
                                     budget_given as i32,
+                                    date_today,
                                 ).fmt(),
                             );
                             position_index += 1;
@@ -576,12 +598,13 @@ impl BillFormatting for Bill {
                                     &external_user_id,
                                     &format!("Guthaben erhalten von {}", other_user.username),
                                     &format!(
-                                        "Guthaben verbraucht: {} Cents (intern verrechnet)",
-                                        budget_gotten
+                                        "Guthaben verbraucht: {} Cents (intern verrechnet){}",
+                                        budget_gotten,day_suffix
                                     ),
                                     position_index,
                                     1,
                                     -1i32 * (budget_gotten as i32),
+                                    date_today,
                                 ).fmt(),
                             );
                             position_index += 1;
@@ -598,12 +621,13 @@ impl BillFormatting for Bill {
                                     &external_user_id,
                                     &item.name,
                                     &format!(
-                                        "Ausgegeben an und verbraucht von {}",
-                                        other_user.username
+                                        "Ausgegeben an und verbraucht von {} {}",
+                                        other_user.username, day_suffix
                                     ),
                                     position_index,
                                     *count,
                                     item.cost_cents as i32,
+                                    date_today,
                                 ).fmt(),
                             );
                             position_index += 1;
@@ -1030,9 +1054,17 @@ mod tests {
                 .collect(),
         ];
 
-        let should_lines = vec!["ExternalUserId0;2;70012420ExternalUserId0;Kantinenabrechnung 01/70;24.01.1970;0;beer;Selbst gekauft;3;0,95;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;Kantinenabrechnung 01/70;24.01.1970;1;soda;Selbst gekauft;19;0,85;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;Kantinenabrechnung 01/70;24.01.1970;2;beer;Selbst gekauft;99;0,95;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;Kantinenabrechnung 01/70;24.01.1970;3;Banana;Speziell abgestrichen;1;123,45;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;Kantinenabrechnung 01/70;24.01.1970;4;beer;An alle ausgegeben;9;0,95;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;Kantinenabrechnung 01/70;24.01.1970;5;soda;An alle ausgegeben;1234;0,85;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;Kantinenabrechnung 01/70;24.01.1970;6;Guthaben erhalten von bob;Guthaben verbraucht: 25 Cents (intern verrechnet);1;0,2-5;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;Kantinenabrechnung 01/70;24.01.1970;7;Guthaben verschenkt an charlie;Guthaben verbraucht: 45 Cents (intern verrechnet);1;0,45;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293", "ExternalUserId0;2;70012420ExternalUserId0;Kantinenabrechnung 01/70;24.01.1970;8;Guthaben erhalten von charlie;Guthaben verbraucht: 140 Cents (intern verrechnet);1;-1,40;2;2;30;0;24.01.1970;07.02.1970;30.12.2069;0;KA 18.01.70-24.01.70;0;;1112;0;8293"];
+        let should_lines = vec!["ExternalUserId0;2;18072907ExternalUserId0;Kantinenabrechnung 07/18;29.07.2018;0;beer;Selbst gekauft 18.01.;3;0,95;2;2;30;0;29.07.2018;12.08.2018;05.07.2118;0;KA 18.01.70-24.01.70;0;;1112;0;8293",
+                                "ExternalUserId0;2;18072907ExternalUserId0;Kantinenabrechnung 07/18;29.07.2018;1;soda;Selbst gekauft 18.01.;19;0,85;2;2;30;0;29.07.2018;12.08.2018;05.07.2118;0;KA 18.01.70-24.01.70;0;;1112;0;8293",
+                                "ExternalUserId0;2;18072907ExternalUserId0;Kantinenabrechnung 07/18;29.07.2018;2;beer;Selbst gekauft 21.01.;99;0,95;2;2;30;0;29.07.2018;12.08.2018;05.07.2118;0;KA 18.01.70-24.01.70;0;;1112;0;8293",
+                                "ExternalUserId0;2;18072907ExternalUserId0;Kantinenabrechnung 07/18;29.07.2018;3;Banana;Speziell abgestrichen 21.01.;1;123,45;2;2;30;0;29.07.2018;12.08.2018;05.07.2118;0;KA 18.01.70-24.01.70;0;;1112;0;8293",
+                                "ExternalUserId0;2;18072907ExternalUserId0;Kantinenabrechnung 07/18;29.07.2018;4;beer;An alle ausgegeben 21.01.;9;0,95;2;2;30;0;29.07.2018;12.08.2018;05.07.2118;0;KA 18.01.70-24.01.70;0;;1112;0;8293",
+                                "ExternalUserId0;2;18072907ExternalUserId0;Kantinenabrechnung 07/18;29.07.2018;5;soda;An alle ausgegeben 21.01.;1234;0,85;2;2;30;0;29.07.2018;12.08.2018;05.07.2118;0;KA 18.01.70-24.01.70;0;;1112;0;8293",
+                                "ExternalUserId0;2;18072907ExternalUserId0;Kantinenabrechnung 07/18;29.07.2018;6;Guthaben erhalten von bob;Guthaben verbraucht: 25 Cents (intern verrechnet) 21.01.;1;0,2-5;2;2;30;0;29.07.2018;12.08.2018;05.07.2118;0;KA 18.01.70-24.01.70;0;;1112;0;8293",
+                                "ExternalUserId0;2;18072907ExternalUserId0;Kantinenabrechnung 07/18;29.07.2018;7;Guthaben verschenkt an charlie;Guthaben verbraucht: 45 Cents (intern verrechnet) 21.01.;1;0,45;2;2;30;0;29.07.2018;12.08.2018;05.07.2118;0;KA 18.01.70-24.01.70;0;;1112;0;8293",
+                                "ExternalUserId0;2;18072907ExternalUserId0;Kantinenabrechnung 07/18;29.07.2018;8;Guthaben erhalten von charlie;Guthaben verbraucht: 140 Cents (intern verrechnet) 21.01.;1;-1,40;2;2;30;0;29.07.2018;12.08.2018;05.07.2118;0;KA 18.01.70-24.01.70;0;;1112;0;8293"];
 
-        let is_content = bill.format_as_sewobe_csv();
+        let is_content = bill.format_as_sewobe_csv(1532886727279i64);
         let is_header = bill.sewobe_header();
 
         let mut is_lines: Vec<String> = is_content.iter().map(|vec| vec.join(";")).collect();
