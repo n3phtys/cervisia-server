@@ -1473,10 +1473,13 @@ pub mod responsehandlers {
                                     "Cervisia bill export on {}",
                                     Utc::now().format("%d.%m.%Y")
                                 );
+                                info!("Building bill for admin");
                                 // construct csv to attach to mail
                                 let body_a_cells = bill.format_as_sewobe_csv(get_date_today());
+                                info!("Finished SEWOBE bill for admin");
                                 // construct total list for all users
                                 let body_b_cells = bill.format_as_documentation();
+                                info!("Finished internal bill for admin");
 
                                 // send both to receiver
                                 let mut lines_a: Vec<String> = Vec::new();
@@ -1501,6 +1504,8 @@ pub mod responsehandlers {
                                     hm.insert("sewobe_import.csv".to_string(), body_a);
                                     hm
                                 };
+
+                                info!("now trying to send attachments");
 
                                 let emailresponse = mail::send_mail(&parsed_body.email_address, &subject, "The bill is attached as two CSV files. One is to import into SEWOBE, the other is for internal tracking and contains additional information.", &attachments, conf, &mail::two_numbers_to_string(parsed_body.timestamp_from, parsed_body.timestamp_to));
                                 if emailresponse.is_ok() {
