@@ -328,7 +328,7 @@ fn ms_to_day_month_str(timestamp_from: i64) -> String {
 }
 
 pub fn get_date_today() -> i64 {
-    let millis: i64 = time::get_time().sec as i64;
+    let millis: i64 = time::get_time().sec as i64 * 1000;
     return millis;
 }
 

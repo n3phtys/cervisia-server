@@ -1473,9 +1473,10 @@ pub mod responsehandlers {
                                     "Cervisia bill export on {}",
                                     Utc::now().format("%d.%m.%Y")
                                 );
-                                info!("Building bill for admin");
+                                let date_today = get_date_today();
+                                info!("Building bill for admin at datestamp {}", &date_today);
                                 // construct csv to attach to mail
-                                let body_a_cells = bill.format_as_sewobe_csv(get_date_today());
+                                let body_a_cells = bill.format_as_sewobe_csv(date_today);
                                 info!("Finished SEWOBE bill for admin");
                                 // construct total list for all users
                                 let body_b_cells = bill.format_as_documentation();
