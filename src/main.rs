@@ -15,6 +15,7 @@ extern crate params;
 extern crate persistent;
 extern crate rand;
 extern crate reqwest;
+extern crate url;
 extern crate router;
 extern crate rustix_bl;
 extern crate serde;
