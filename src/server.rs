@@ -2249,6 +2249,9 @@ mod tests {
     use std::sync::RwLock;
     use std::sync::{Arc, Mutex};
     use std::thread;
+    use url::form_urlencoded;
+    use server::responsehandlers::CreateUser;
+    use server::responsehandlers::MakeSimplePurchase;
 
     const HOST_WITHOUTPORT: &'static str = "http://localhost:";
 
@@ -2327,9 +2330,14 @@ mod tests {
             },
         };
         let query = serde_json::to_string(&params).unwrap();
+
+        let encoded: String = form_urlencoded::Serializer::new(String::new())
+            .append_pair("query", &query)
+            .finish();
+
         let url = format!(
-            "{}{}/api/users/all?query={}",
-            HOST_WITHOUTPORT, config.server_port, query
+            "{}{}/api/users/all?{}",
+            HOST_WITHOUTPORT, config.server_port, encoded
         );
 
         let httpbody = blocking_http_get_call(&url).unwrap();
@@ -2359,10 +2367,17 @@ mod tests {
 
         {
             let query = serde_json::to_string(&params_for_user).unwrap();
+
+            let encoded: String = form_urlencoded::Serializer::new(String::new())
+                .append_pair("query", &query)
+                .finish();
+
             let url = format!(
-                "{}{}/api/users/all?query={}",
-                HOST_WITHOUTPORT, config.server_port, query
+                "{}{}/api/users/all?{}",
+                HOST_WITHOUTPORT, config.server_port, encoded
             );
+
+            println!("Trying to query url: {}", url);
 
             let httpbody = blocking_http_get_call(&url).unwrap();
 
@@ -2459,9 +2474,14 @@ mod tests {
         };
 
         let query = serde_json::to_string(&state).unwrap();
+
+        let encoded: String = form_urlencoded::Serializer::new(String::new())
+            .append_pair("query", &query)
+            .finish();
+
         let url = format!(
-            "{}{}/api/users?query={}",
-            HOST_WITHOUTPORT, config.server_port, query
+            "{}{}/api/users?{}",
+            HOST_WITHOUTPORT, config.server_port, encoded
         );
 
         let httpbody = blocking_http_post_call(&url, &postjson).unwrap();
@@ -2501,9 +2521,14 @@ mod tests {
 
         {
             let query = serde_json::to_string(&params_for_user).unwrap();
+
+            let encoded: String = form_urlencoded::Serializer::new(String::new())
+                .append_pair("query", &query)
+                .finish();
+
             let url = format!(
-                "{}{}/api/users/all?query={}",
-                HOST_WITHOUTPORT, config.server_port, query
+                "{}{}/api/users/all?{}",
+                HOST_WITHOUTPORT, config.server_port, encoded
             );
 
             let httpbody = blocking_http_get_call(&url).unwrap();
@@ -2618,10 +2643,17 @@ mod tests {
         };
 
         let query = serde_json::to_string(&state).unwrap();
+
+
+        let encoded: String = form_urlencoded::Serializer::new(String::new())
+            .append_pair("query", &query)
+            .finish();
+
         let url = format!(
-            "{}{}/api/purchases?query={}",
-            HOST_WITHOUTPORT, config.server_port, query
+            "{}{}/api/purchases?{}",
+            HOST_WITHOUTPORT, config.server_port, encoded
         );
+
 
         let httpbody = blocking_http_post_call(&url, &postjson).unwrap();
 
