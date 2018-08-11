@@ -1084,6 +1084,8 @@ pub mod responsehandlers {
         let mut dat = datholder.write().unwrap();
         let query_str = extract_query(req);
 
+
+
         match query_str {
             Some(json_query) => {
                 let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
@@ -1100,6 +1102,9 @@ pub mod responsehandlers {
                         is_sepa: parsed_body.is_sepa,
                     },
                 );
+
+
+                println!("Going to change user to new state: result = {:?}" , result);
 
                 match result {
                     Ok(sux) => {

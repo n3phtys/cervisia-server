@@ -49,7 +49,7 @@ pub struct SewobeCSVLine {
     pub position_description: String,
     pub position_count: u32,
     pub price_per_unit_cents: i32,
-    pub use_inbox: bool,
+    pub use_invoice: bool,
     pub receive_mail: bool,
     pub payment_target_days: u32,
     pub sepa_interval: u32,
@@ -345,6 +345,7 @@ impl SewobeCSVLine {
         position_count: u32,
         position_price_per_unit: i32,
         date_today: i64,
+        is_sepa: bool,
     ) -> Self {
         let utc_timestamp_from = Utc.timestamp(timestamp_from / 1000, 0);
         let utc_timestamp_to = Utc.timestamp(timestamp_to / 1000, 0);
@@ -368,7 +369,7 @@ impl SewobeCSVLine {
             position_description: position_description.to_string(),
             position_count: position_count,
             price_per_unit_cents: position_price_per_unit,
-            use_inbox: true,
+            use_invoice: is_sepa,
             receive_mail: true,
             payment_target_days: 30,
             sepa_interval: 0,
@@ -408,7 +409,7 @@ impl SewobeCSVLine {
             self.position_description.to_string(),
             self.position_count.to_string(),
             cents_to_currency_string(self.price_per_unit_cents),
-            if self.use_inbox {
+            if self.use_invoice {
                 "2".to_string()
             } else {
                 "1".to_string()
@@ -493,6 +494,13 @@ impl BillFormatting for Bill {
                     .external_user_id
                     .unwrap()
                     .to_string();
+                let is_sepa: bool = users
+                    .get(user_id)
+                    .unwrap()
+                    .clone()
+                    .is_sepa;
+
+
                 let mut position_index = 0u16;
                 for day in &consumption.per_day.in_order_keys() {
                     let daycontent = consumption.per_day.get(day).unwrap();
@@ -520,6 +528,7 @@ impl BillFormatting for Bill {
                                 *count,
                                 item.cost_cents as i32,
                                 date_today,
+                                is_sepa,
                             ).fmt(),
                         );
                         position_index += 1;
@@ -536,6 +545,7 @@ impl BillFormatting for Bill {
                                 1,
                                 special.price as i32,
                                 date_today,
+                                is_sepa,
                             ).fmt(),
                         );
                         position_index += 1;
@@ -556,6 +566,7 @@ impl BillFormatting for Bill {
                                 *count,
                                 item.cost_cents as i32,
                                 date_today,
+                                is_sepa,
                             ).fmt(),
                         );
                         position_index += 1;
@@ -586,6 +597,7 @@ impl BillFormatting for Bill {
                                     1,
                                     budget_given as i32,
                                     date_today,
+                                    is_sepa,
                                 ).fmt(),
                             );
                             position_index += 1;
@@ -605,6 +617,7 @@ impl BillFormatting for Bill {
                                     1,
                                     -1i32 * (budget_gotten as i32),
                                     date_today,
+                                    is_sepa,
                                 ).fmt(),
                             );
                             position_index += 1;
@@ -628,6 +641,7 @@ impl BillFormatting for Bill {
                                     *count,
                                     item.cost_cents as i32,
                                     date_today,
+                                    is_sepa,
                                 ).fmt(),
                             );
                             position_index += 1;
