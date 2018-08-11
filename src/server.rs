@@ -287,6 +287,7 @@ pub mod responsehandlers {
         pub username: String,
         pub external_user_id: Option<String>,
         pub user_id: u32,
+        pub is_sepa: bool,
         pub is_billed: bool,
         pub highlight_in_ui: bool,
     }
@@ -1096,6 +1097,7 @@ pub mod responsehandlers {
                         is_billed: parsed_body.is_billed,
                         is_highlighted: parsed_body.highlight_in_ui,
                         external_user_id: parsed_body.external_user_id,
+                        is_sepa: parsed_body.is_sepa,
                     },
                 );
 

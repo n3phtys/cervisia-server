@@ -1069,6 +1069,7 @@ impl ServableRustix for ServableRustixImpl {
                 is_billed,
                 is_highlighted,
                 external_user_id,
+                is_sepa,
             } => {
                 let username: String = username;
                 let _ = &mut backend.update_user(
@@ -1077,6 +1078,7 @@ impl ServableRustix for ServableRustixImpl {
                     is_billed,
                     is_highlighted,
                     external_user_id,
+                    is_sepa,
                 );
                 //refresh only 2 values:
                 //refresh all users
@@ -1679,8 +1681,8 @@ pub fn fill_backend_with_medium_test_data(backend: &mut Backend) -> () {
     (*back).create_item("Schirker".to_string(), 1100, Some("Liquor".to_string()));
     (*back).create_item("Kräussen".to_string(), 1100, Some("Beer".to_string()));
 
-    let seed: &[_] = &[42];
-    let mut rng: StdRng = SeedableRng::from_seed(seed);
+    let seed: &[u8; 32] = &[42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8];
+    let mut rng: StdRng = SeedableRng::from_seed(*seed);
 
     let mut timestamp_counter = 12345678i64;
     (*back).purchase(0, 2, timestamp_counter);
@@ -1706,9 +1708,9 @@ pub fn fill_backend_with_large_test_data(backend: &mut Backend) -> () {
         "Gruin".to_string(),
         true,
         true,
-        Some("gruins-sewobe-id".to_string()),
+        Some("gruins-sewobe-id".to_string()), true,
     );
-    (*back).update_user(1, "Vall".to_string(), false, true, None);
+    (*back).update_user(1, "Vall".to_string(), false, true, None, true);
     (*back).create_user("rad(i)".to_string());
 
     for i in 0..500 {
@@ -1718,7 +1720,7 @@ pub fn fill_backend_with_large_test_data(backend: &mut Backend) -> () {
             "GenUser #".to_string() + &i.to_string(),
             true,
             false,
-            Some("#".to_string() + &i.to_string()),
+            Some("#".to_string() + &i.to_string()), true,
         );
     }
 
@@ -1732,7 +1734,7 @@ pub fn fill_backend_with_large_test_data(backend: &mut Backend) -> () {
     (*back).create_item("Schirker".to_string(), 1100, Some("Liquor".to_string()));
     (*back).create_item("Kräussen".to_string(), 1100, Some("Beer".to_string()));
 
-    let seed: &[_] = &[42];
+    let seed: [u8; 32] = [42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8];
     let mut rng: StdRng = SeedableRng::from_seed(seed);
 
     let mut timestamp_counter = 12345678i64;

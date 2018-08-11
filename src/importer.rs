@@ -70,6 +70,7 @@ pub fn import_users_into_store(
                 user_id: existing_user.user_id,
                 username: import_user.name.to_string(),
                 is_billed: existing_user.is_billed,
+                is_sepa: existing_user.is_sepa,
                 is_highlighted: existing_user.highlight_in_ui,
                 external_user_id: Some(import_user.id),
             });
