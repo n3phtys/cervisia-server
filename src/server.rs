@@ -172,6 +172,10 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     router.post("/bill/delete", delete_bill, "deletebill");
     router.post("/bill/finalize", finalize_bill, "finalizebill");
 
+
+
+    router.get("/bill/download", receive_download_code, "downloadbill");
+
     {
         let config = config.clone();
         router.post(
@@ -261,6 +265,7 @@ pub mod responsehandlers {
     use super::*;
     use billformatter::BillFormatting;
     use manager::*;
+
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct CreateItem {
@@ -409,6 +414,54 @@ pub mod responsehandlers {
             _ => None,
         };
     }
+
+
+    fn extract_query_param(req: &mut iron::request::Request, key: &str) -> Option<String> {
+        let map = req.get_ref::<Params>().unwrap();
+        return match map.find(&[key]) {
+            Some(&Value::String(ref json)) => {
+                return Some(json.to_string());
+            }
+            _ => None,
+        };
+    }
+
+
+    pub fn receive_download_code(_req: &mut iron::request::Request) -> IronResult<Response> {
+
+        let zipfile = "zip file,2,3,hello";
+        let filename = "test.csv".to_string();
+
+        use iron::mime;
+        use iron::headers;
+        use iron::prelude::*;
+        use iron::headers::ContentDisposition;
+        use iron::headers::DispositionType;
+        use iron::headers::DispositionParam;
+        use iron::headers::Charset;
+        use iron::modifiers::Header;
+
+        println!("receive download code called");
+
+        let content_type = "text/csv".parse::<mime::Mime>().unwrap();
+
+
+        let mut resp = Response::with((content_type, iron::status::Ok, zipfile ));
+
+        resp.headers.set( ContentDisposition {
+            disposition: DispositionType::Attachment,
+            parameters: vec![DispositionParam::Filename(
+                Charset::Iso_8859_1, // The character set for the bytes of the filename
+                None, // The optional language tag (see `language-tag` crate)
+                filename.into_bytes() // the actual bytes of the filename
+            )]
+        });
+
+        return Ok(resp);
+
+    }
+
+
 
     fn extract_body(req: &mut iron::request::Request) -> String {
         let mut s = String::new();
