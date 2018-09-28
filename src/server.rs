@@ -34,6 +34,7 @@ use rustix_bl::rustix_backend::WriteBackend;
 use typescriptify::TypeScriptifyTrait;
 use billformatter::get_date_today;
 
+
 use params::{Params, Value};
 
 pub type Backend = rustix_bl::rustix_backend::RustixBackend;
@@ -173,8 +174,9 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     router.post("/bill/finalize", finalize_bill, "finalizebill");
 
 
-
+    router.get("/bill/download/list", list_bills_api, "downloadbilllist");
     router.get("/bill/download", receive_download_code, "downloadbill");
+    router.get("/bill/download/secure", receive_download_code, "downloadbillsecure"); //TODO: make into own function receive_download_code_secure
 
     {
         let config = config.clone();
@@ -265,7 +267,17 @@ pub mod responsehandlers {
     use super::*;
     use billformatter::BillFormatting;
     use manager::*;
+    use rustix_bl::datastore::Bill;
 
+
+    use iron::mime;
+    use iron::headers;
+    use iron::prelude::*;
+    use iron::headers::ContentDisposition;
+    use iron::headers::DispositionType;
+    use iron::headers::DispositionParam;
+    use iron::headers::Charset;
+    use iron::modifiers::Header;
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct CreateItem {
@@ -427,19 +439,146 @@ pub mod responsehandlers {
     }
 
 
-    pub fn receive_download_code(_req: &mut iron::request::Request) -> IronResult<Response> {
+    fn build_filename(limit_to_user : Option<u32>, use_sewobe_form: bool, from : i64, to : i64) -> String {
+        return "bill.csv".to_string();
+    }
 
-        let zipfile = "zip file,2,3,hello";
-        let filename = "test.csv".to_string();
+    pub fn list_bills_api(req: &mut iron::request::Request) -> IronResult<Response> {
 
-        use iron::mime;
-        use iron::headers;
-        use iron::prelude::*;
-        use iron::headers::ContentDisposition;
-        use iron::headers::DispositionType;
-        use iron::headers::DispositionParam;
-        use iron::headers::Charset;
-        use iron::modifiers::Header;
+        use rustix_bl::datastore::DatastoreQueries;
+
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let dat = datholder.read().unwrap();
+        let mut lines: Vec<String> = Vec::new();
+
+        lines.push("<ol>".to_string());
+        {
+            let backend: &Backend = &dat;
+
+            let mut xs = backend
+                .datastore
+                .bills_filtered(
+                    None,
+                    -10000000000000000i64,
+                    10000000000000000i64,
+                )
+                .to_vec();
+
+            let result: Vec<rustix_bl::datastore::Bill> = xs;
+
+
+            for b in result {
+                lines.push(format!("<li> <a href=\"/api/bill/download?from={:?}&to={:?}&sewobeform=true&limitedtouser=none\">/api/bill/download?from={:?}&to={:?}&sewobeform=true&limitedtouser=none</a> </li>", b.timestamp_from, b.timestamp_to, b.timestamp_from, b.timestamp_to));
+            }
+        }
+        lines.push("</ol>".to_string());
+        let  mylist = lines.join("\n");
+
+
+        let content_type = "text/html".parse::<mime::Mime>().unwrap();
+
+
+        let mut resp = Response::with((content_type, iron::status::Ok, mylist ));
+
+        return Ok(resp);
+
+
+
+    }
+
+    pub fn receive_download_code(req: &mut iron::request::Request) -> IronResult<Response> {
+
+        let fromstr = extract_query_param(req, "from");
+        let tostr = extract_query_param(req, "to");
+        let sewobeform = extract_query_param(req, "sewobeform");
+        let limitedtouser = extract_query_param(req, "limitedtouser");
+        let limit_to_user : Option<u32> =limitedtouser.unwrap_or("no-user-declared".to_string()).parse::<u32>().ok();
+        let use_sewobe_form: bool = sewobeform.unwrap_or("true".to_string()) != "false";
+        let from : i64 = fromstr.unwrap_or("no-date-declared".to_string()).parse::<i64>().ok().unwrap_or(0);
+        let to : i64 = tostr.unwrap_or("no-date-declared".to_string()).parse::<i64>().ok().unwrap_or(0);
+
+        let filetitle: String = build_filename(limit_to_user.clone(), use_sewobe_form, from , to);
+        let mut filecontent: String = "did not find required params".to_string();
+        {
+            let datholder = req.get::<State<SharedBackend>>().unwrap();
+            let mut dat = datholder.write().unwrap();
+
+            use rustix_bl::datastore::DatastoreQueries;
+            let bill_opt = dat.datastore
+                .get_bill(from, to);
+
+            if bill_opt.is_none() {
+                return Ok(Response::with((
+                    iron::status::Conflict,
+                    serde_json::to_string(&ServerWriteResult {
+                        error_message: Some("Could not find a bill with given params".to_string()),
+                        is_success: false,
+                        content: None,
+                    }).unwrap(),
+                )));
+            }
+
+            let bill: rustix_bl::datastore::Bill = bill_opt.unwrap()
+                .clone();
+                            match limit_to_user {
+                                Some(user_id) => {
+                                    let subject = format!(
+                                        "Your Cervisia bill export on {}",
+                                        Utc::now().format("%d.%m.%Y")
+                                    );
+                                    let body_cells =
+                                        bill.format_as_personalized_documentation(&user_id);
+
+                                    let mut lines: Vec<String> = Vec::new();
+
+                                    for line_vec in body_cells {
+                                        lines.push(line_vec.join(";"));
+                                    }
+                                    filecontent = lines.join("\n");
+
+                                }
+                                None => {
+                                    let subject = format!(
+                                        "Cervisia bill export on {}",
+                                        Utc::now().format("%d.%m.%Y")
+                                    );
+                                    let date_today = get_date_today();
+                                    info!("Building bill for admin at datestamp {}", &date_today);
+
+                                    let mut lines_a: Vec<String> = Vec::new();
+                                    let mut lines_b: Vec<String> = Vec::new();
+                                    if use_sewobe_form {
+                                        let body_a_cells = bill.format_as_sewobe_csv(date_today);
+                                        info!("Finished SEWOBE bill for admin");
+                                        for line_vec in body_a_cells {
+                                            lines_a.push(line_vec.join(";"));
+                                        }
+                                        let body_a: String = lines_a.join("\n");
+                                        filecontent = body_a;
+                                    } else {
+                                        let body_b_cells = bill.format_as_documentation();
+                                        info!("Finished internal bill for admin");
+                                        for line_vec in body_b_cells {
+                                            lines_b.push(line_vec.join(";"));
+                                        }
+                                        let body_b: String = lines_b.join("\n");
+                                        filecontent = body_b;
+                                    }
+
+                                }
+            };
+        }
+
+
+
+
+
+
+
+
+        let  filename = filetitle.to_string();
+        let zipfile= filecontent.to_string();
+
 
         println!("receive download code called");
 
