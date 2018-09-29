@@ -464,7 +464,7 @@ pub mod responsehandlers {
                 )
                 .to_vec();
 
-            let result: Vec<rustix_bl::datastore::Bill> = xs;
+            let result: Vec<rustix_bl::datastore::Bill> = xs.into_iter().filter(|b|b.bill_state != rustix_bl::datastore::BillState::Created).collect();
 
 
             for b in result {
@@ -485,6 +485,7 @@ pub mod responsehandlers {
 
 
     }
+
 
     pub fn receive_download_code(req: &mut iron::request::Request) -> IronResult<Response> {
 

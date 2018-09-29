@@ -6,7 +6,7 @@ authors = ["nephtys <christopher.kaag@gmail.com>"]
 [dependencies]
 iron = "0.5"
 #rustix-bl = "*"
-rustix-bl = { git = "https://github.com/n3phtys/rustix-bl", branch = "master" }
+rustix-bl = { path = "backend" }
 time = "*"
 staticfile = "0.4"
 env_logger = "*"

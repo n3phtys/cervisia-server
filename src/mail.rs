@@ -204,7 +204,7 @@ Content-Type: text/plain; charset=utf-8
                     };
 
                     // Connect to a remote server on a custom port
-                    let mut mailer = SmtpTransport::builder(format!("{}:{}", config.smtp_host_address, config.smtp_port), ClientSecurity::Required(tls)).unwrap()
+                    let mut mailer = try!(SmtpTransport::builder(format!("{}:{}", config.smtp_host_address, config.smtp_port), ClientSecurity::Required(tls)))
                         // Add credentials for authentication
                         .credentials(Credentials::new(config.smpt_credentials_loginname.to_string(), config.smpt_credentials_password.to_string()))
                         // Enable SMTPUTF8 if the server supports it
@@ -262,7 +262,7 @@ Content-Type: text/plain; charset=utf-8
                     };
 
                     // Connect to a remote server on a custom port
-                    let mut mailer = SmtpTransport::builder(format!("{}:{}", config.smtp_host_address, config.smtp_port), ClientSecurity::Required(tls)).unwrap()
+                    let mut mailer = try!(SmtpTransport::builder(format!("{}:{}", config.smtp_host_address, config.smtp_port), ClientSecurity::Required(tls)))
                         // Add credentials for authentication
                         .credentials(Credentials::new(config.smpt_credentials_loginname.to_string(), config.smpt_credentials_password.to_string()))
                         // Enable SMTPUTF8 if the server supports it
