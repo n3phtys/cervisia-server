@@ -38,6 +38,13 @@ fn cents_to_currency_string(cents: i32) -> String {
     return format!("{},{}{}", before, after1, after2);
 }
 
+fn cents_to_currency_string_u32(cents: u32) -> String {
+    let before = cents / 100;
+    let after2 = cents % 10;
+    let after1 = (cents % 100 - after2) / 10;
+    return format!("{},{}{}", before, after1, after2);
+}
+
 pub struct SewobeCSVLine {
     pub external_user_id: String,
     pub use_r_vs_g: bool,
@@ -48,7 +55,7 @@ pub struct SewobeCSVLine {
     pub position_name: String,
     pub position_description: String,
     pub position_count: u32,
-    pub price_per_unit_cents: i32,
+    pub price_per_unit_cents: u32,
     pub use_invoice: bool,
     pub receive_mail: bool,
     pub payment_target_days: u32,
@@ -343,7 +350,7 @@ impl SewobeCSVLine {
         position_description: &str,
         position_index: u16,
         position_count: u32,
-        position_price_per_unit: i32,
+        position_price_per_unit: u32,
         date_today: i64,
         is_sepa: bool,
     ) -> Self {
@@ -408,7 +415,7 @@ impl SewobeCSVLine {
             self.position_name.to_string(),
             self.position_description.to_string(),
             self.position_count.to_string(),
-            cents_to_currency_string(self.price_per_unit_cents),
+            cents_to_currency_string_u32(self.price_per_unit_cents),
             if self.use_invoice {
                 "2".to_string()
             } else {
@@ -526,7 +533,7 @@ impl BillFormatting for Bill {
                                 &format!("Selbst gekauft{}", &day_suffix),
                                 position_index,
                                 *count,
-                                item.cost_cents as i32,
+                                item.cost_cents,
                                 date_today,
                                 is_sepa,
                             ).fmt(),
@@ -543,7 +550,7 @@ impl BillFormatting for Bill {
                                 &format!("Speziell abgestrichen{}" , &day_suffix),
                                 position_index,
                                 1,
-                                special.price as i32,
+                                special.price,
                                 date_today,
                                 is_sepa,
                             ).fmt(),
@@ -564,7 +571,7 @@ impl BillFormatting for Bill {
                                 &format!("An alle ausgegeben{}", &day_suffix),
                                 position_index,
                                 *count,
-                                item.cost_cents as i32,
+                                item.cost_cents,
                                 date_today,
                                 is_sepa,
                             ).fmt(),
@@ -595,7 +602,7 @@ impl BillFormatting for Bill {
                                     ),
                                     position_index,
                                     1,
-                                    budget_given as i32,
+                                    budget_given as u32,
                                     date_today,
                                     is_sepa,
                                 ).fmt(),
@@ -615,7 +622,7 @@ impl BillFormatting for Bill {
                                     ),
                                     position_index,
                                     1,
-                                    -1i32 * (budget_gotten as i32),
+                                    0,
                                     date_today,
                                     is_sepa,
                                 ).fmt(),
@@ -639,7 +646,7 @@ impl BillFormatting for Bill {
                                     ),
                                     position_index,
                                     *count,
-                                    item.cost_cents as i32,
+                                    item.cost_cents,
                                     date_today,
                                     is_sepa,
                                 ).fmt(),
@@ -1077,9 +1084,9 @@ mod tests {
                                 "ExternalUserId0;2;18072907ExternalUserId0;Kantinenabrechnung 07/18;29.07.2018;3;Banana;Speziell abgestrichen 21.01.;1;123,45;2;2;30;0;29.07.2018;12.08.2018;05.07.2118;0;KA 18.01.70-24.01.70;0;;1112;0;8293",
                                 "ExternalUserId0;2;18072907ExternalUserId0;Kantinenabrechnung 07/18;29.07.2018;4;beer;An alle ausgegeben 21.01.;9;0,95;2;2;30;0;29.07.2018;12.08.2018;05.07.2118;0;KA 18.01.70-24.01.70;0;;1112;0;8293",
                                 "ExternalUserId0;2;18072907ExternalUserId0;Kantinenabrechnung 07/18;29.07.2018;5;soda;An alle ausgegeben 21.01.;1234;0,85;2;2;30;0;29.07.2018;12.08.2018;05.07.2118;0;KA 18.01.70-24.01.70;0;;1112;0;8293",
-                                "ExternalUserId0;2;18072907ExternalUserId0;Kantinenabrechnung 07/18;29.07.2018;6;Guthaben erhalten von bob;Guthaben verbraucht: 25 Cents (intern verrechnet) 21.01.;1;0,2-5;2;2;30;0;29.07.2018;12.08.2018;05.07.2118;0;KA 18.01.70-24.01.70;0;;1112;0;8293",
+                                "ExternalUserId0;2;18072907ExternalUserId0;Kantinenabrechnung 07/18;29.07.2018;6;Guthaben erhalten von bob;Guthaben verbraucht: 25 Cents (intern verrechnet) 21.01.;1;0,00;2;2;30;0;29.07.2018;12.08.2018;05.07.2118;0;KA 18.01.70-24.01.70;0;;1112;0;8293",
                                 "ExternalUserId0;2;18072907ExternalUserId0;Kantinenabrechnung 07/18;29.07.2018;7;Guthaben verschenkt an charlie;Guthaben verbraucht: 45 Cents (intern verrechnet) 21.01.;1;0,45;2;2;30;0;29.07.2018;12.08.2018;05.07.2118;0;KA 18.01.70-24.01.70;0;;1112;0;8293",
-                                "ExternalUserId0;2;18072907ExternalUserId0;Kantinenabrechnung 07/18;29.07.2018;8;Guthaben erhalten von charlie;Guthaben verbraucht: 140 Cents (intern verrechnet) 21.01.;1;-1,40;2;2;30;0;29.07.2018;12.08.2018;05.07.2118;0;KA 18.01.70-24.01.70;0;;1112;0;8293"];
+                                "ExternalUserId0;2;18072907ExternalUserId0;Kantinenabrechnung 07/18;29.07.2018;8;Guthaben erhalten von charlie;Guthaben verbraucht: 140 Cents (intern verrechnet) 21.01.;1;0,00;2;2;30;0;29.07.2018;12.08.2018;05.07.2118;0;KA 18.01.70-24.01.70;0;;1112;0;8293"];
 
         let is_content = bill.format_as_sewobe_csv(1532886727279i64);
         let is_header = bill.sewobe_header();
