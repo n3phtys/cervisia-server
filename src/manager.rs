@@ -1771,5 +1771,5 @@ pub fn fill_backend_with_large_test_data(backend: &mut Backend) -> () {
 #[cfg(test)]
 pub mod tests {
     use server::Backend;
-    pub fn fill_not(backend: &mut Backend) -> () {}
+    pub fn fill_not(_backend: &mut Backend) -> () {}
 }

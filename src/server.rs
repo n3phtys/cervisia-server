@@ -267,17 +267,13 @@ pub mod responsehandlers {
     use super::*;
     use billformatter::BillFormatting;
     use manager::*;
-    use rustix_bl::datastore::Bill;
 
 
     use iron::mime;
-    use iron::headers;
-    use iron::prelude::*;
     use iron::headers::ContentDisposition;
     use iron::headers::DispositionType;
     use iron::headers::DispositionParam;
     use iron::headers::Charset;
-    use iron::modifiers::Header;
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct CreateItem {
@@ -439,7 +435,7 @@ pub mod responsehandlers {
     }
 
 
-    fn build_filename(limit_to_user : Option<u32>, use_sewobe_form: bool, from : i64, to : i64) -> String {
+    fn build_filename() -> String {
         return "bill.csv".to_string();
     }
 
@@ -455,7 +451,7 @@ pub mod responsehandlers {
         {
             let backend: &Backend = &dat;
 
-            let mut xs = backend
+            let xs = backend
                 .datastore
                 .bills_filtered(
                     None,
@@ -478,7 +474,7 @@ pub mod responsehandlers {
         let content_type = "text/html".parse::<mime::Mime>().unwrap();
 
 
-        let mut resp = Response::with((content_type, iron::status::Ok, mylist ));
+        let resp = Response::with((content_type, iron::status::Ok, mylist ));
 
         return Ok(resp);
 
@@ -498,11 +494,11 @@ pub mod responsehandlers {
         let from : i64 = fromstr.unwrap_or("no-date-declared".to_string()).parse::<i64>().ok().unwrap_or(0);
         let to : i64 = tostr.unwrap_or("no-date-declared".to_string()).parse::<i64>().ok().unwrap_or(0);
 
-        let filetitle: String = build_filename(limit_to_user.clone(), use_sewobe_form, from , to);
-        let mut filecontent: String = "did not find required params".to_string();
+        let filetitle: String = build_filename();
+        let filecontent: String;
         {
             let datholder = req.get::<State<SharedBackend>>().unwrap();
-            let mut dat = datholder.write().unwrap();
+            let dat = datholder.write().unwrap();
 
             use rustix_bl::datastore::DatastoreQueries;
             let bill_opt = dat.datastore
@@ -523,7 +519,7 @@ pub mod responsehandlers {
                 .clone();
                             match limit_to_user {
                                 Some(user_id) => {
-                                    let subject = format!(
+                                    let _subject = format!(
                                         "Your Cervisia bill export on {}",
                                         Utc::now().format("%d.%m.%Y")
                                     );
@@ -539,7 +535,7 @@ pub mod responsehandlers {
 
                                 }
                                 None => {
-                                    let subject = format!(
+                                    let _subject = format!(
                                         "Cervisia bill export on {}",
                                         Utc::now().format("%d.%m.%Y")
                                     );
@@ -2428,28 +2424,30 @@ pub fn blocking_http_post_call<T: serde::ser::Serialize>(
 
 #[cfg(test)]
 mod tests {
-    use configuration::*;
+
     use iron;
-    use iron::Iron;
+
     use manager::tests::*;
     use manager::ParametersAll;
     use manager::*;
-    use mount::Mount;
-    use reqwest;
+
+
     use rustix_bl;
-    use rustix_bl::rustix_event_shop;
+
     use serde_json;
     use server::*;
-    use staticfile::Static;
-    use std;
-    use std::io::Read;
-    use std::sync::mpsc::channel;
-    use std::sync::RwLock;
-    use std::sync::{Arc, Mutex};
-    use std::thread;
+
+
+
+    use std::sync::Mutex;
+
+
+
+
     use url::form_urlencoded;
     use server::responsehandlers::CreateUser;
     use server::responsehandlers::MakeSimplePurchase;
+    use configuration::ServerConfig;
 
     const HOST_WITHOUTPORT: &'static str = "http://localhost:";
 
@@ -2744,16 +2742,6 @@ mod tests {
     fn making_a_simple_purchase_works() {
         let (server, config) = build_default_server(fill_backend_with_medium_test_data);
         let mut server = server;
-
-        let params_for_user = ParametersAllUsers {
-            count_pars: ParametersAllUsersCount {
-                searchterm: "".to_string(),
-            },
-            pagination: ParametersPagination {
-                start_inclusive: 0,
-                end_exclusive: 1_000_000,
-            },
-        };
 
         let state = ParametersAll {
             top_users: ParametersTopUsers { n: 0 },

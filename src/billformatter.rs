@@ -854,7 +854,6 @@ mod tests {
     use chrono::*;
     use rustix_bl;
     use rustix_bl::datastore::*;
-    use rustix_bl::datastore::*;
     use std::collections::*;
 
     #[test]
@@ -1091,7 +1090,7 @@ mod tests {
         let is_content = bill.format_as_sewobe_csv(1532886727279i64);
         let is_header = bill.sewobe_header();
 
-        let mut is_lines: Vec<String> = is_content.iter().map(|vec| vec.join(";")).collect();
+        let is_lines: Vec<String> = is_content.iter().map(|vec| vec.join(";")).collect();
 
         let is_all: String = is_lines.join("\n");
 
