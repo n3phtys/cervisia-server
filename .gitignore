@@ -10,3 +10,4 @@ snapshot.yaml
 bill_*.zip
 import_sewobe_users.js
 .vscode
+proddump
