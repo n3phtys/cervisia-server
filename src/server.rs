@@ -127,6 +127,10 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
         "endpoints",
     );
 
+
+    router.get("/database/export/string", database_export_to_string, "databaseexportstring");
+
+
     router.get("/users/all", all_users, "allusers");
     router.get("/users/top", top_users, "topusers");
     router.get("/users/detail", user_detail_info, "userdetails");
@@ -274,6 +278,7 @@ pub mod responsehandlers {
     use iron::headers::DispositionType;
     use iron::headers::DispositionParam;
     use iron::headers::Charset;
+    use rustix_bl::persistencer::Persistencer;
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct CreateItem {
@@ -440,7 +445,6 @@ pub mod responsehandlers {
     }
 
     pub fn list_bills_api(req: &mut iron::request::Request) -> IronResult<Response> {
-
         use rustix_bl::datastore::DatastoreQueries;
 
         let datholder = req.get::<State<SharedBackend>>().unwrap();
@@ -460,7 +464,7 @@ pub mod responsehandlers {
                 )
                 .to_vec();
 
-            let result: Vec<rustix_bl::datastore::Bill> = xs.into_iter().filter(|b|b.bill_state != rustix_bl::datastore::BillState::Created).collect();
+            let result: Vec<rustix_bl::datastore::Bill> = xs.into_iter().filter(|b| b.bill_state != rustix_bl::datastore::BillState::Created).collect();
 
 
             for b in result {
@@ -468,31 +472,27 @@ pub mod responsehandlers {
             }
         }
         lines.push("</ol>".to_string());
-        let  mylist = lines.join("\n");
+        let mylist = lines.join("\n");
 
 
         let content_type = "text/html".parse::<mime::Mime>().unwrap();
 
 
-        let resp = Response::with((content_type, iron::status::Ok, mylist ));
+        let resp = Response::with((content_type, iron::status::Ok, mylist));
 
         return Ok(resp);
-
-
-
     }
 
 
     pub fn receive_download_code(req: &mut iron::request::Request) -> IronResult<Response> {
-
         let fromstr = extract_query_param(req, "from");
         let tostr = extract_query_param(req, "to");
         let sewobeform = extract_query_param(req, "sewobeform");
         let limitedtouser = extract_query_param(req, "limitedtouser");
-        let limit_to_user : Option<u32> =limitedtouser.unwrap_or("no-user-declared".to_string()).parse::<u32>().ok();
+        let limit_to_user: Option<u32> = limitedtouser.unwrap_or("no-user-declared".to_string()).parse::<u32>().ok();
         let use_sewobe_form: bool = sewobeform.unwrap_or("true".to_string()) != "false";
-        let from : i64 = fromstr.unwrap_or("no-date-declared".to_string()).parse::<i64>().ok().unwrap_or(0);
-        let to : i64 = tostr.unwrap_or("no-date-declared".to_string()).parse::<i64>().ok().unwrap_or(0);
+        let from: i64 = fromstr.unwrap_or("no-date-declared".to_string()).parse::<i64>().ok().unwrap_or(0);
+        let to: i64 = tostr.unwrap_or("no-date-declared".to_string()).parse::<i64>().ok().unwrap_or(0);
 
         let filetitle: String = build_filename();
         let filecontent: String;
@@ -517,64 +517,56 @@ pub mod responsehandlers {
 
             let bill: rustix_bl::datastore::Bill = bill_opt.unwrap()
                 .clone();
-                            match limit_to_user {
-                                Some(user_id) => {
-                                    let _subject = format!(
-                                        "Your Cervisia bill export on {}",
-                                        Utc::now().format("%d.%m.%Y")
-                                    );
-                                    let body_cells =
-                                        bill.format_as_personalized_documentation(&user_id);
+            match limit_to_user {
+                Some(user_id) => {
+                    let _subject = format!(
+                        "Your Cervisia bill export on {}",
+                        Utc::now().format("%d.%m.%Y")
+                    );
+                    let body_cells =
+                        bill.format_as_personalized_documentation(&user_id);
 
-                                    let mut lines: Vec<String> = Vec::new();
+                    let mut lines: Vec<String> = Vec::new();
 
-                                    for line_vec in body_cells {
-                                        lines.push(line_vec.join(";"));
-                                    }
-                                    filecontent = lines.join("\n");
+                    for line_vec in body_cells {
+                        lines.push(line_vec.join(";"));
+                    }
+                    filecontent = lines.join("\n");
+                }
+                None => {
+                    let _subject = format!(
+                        "Cervisia bill export on {}",
+                        Utc::now().format("%d.%m.%Y")
+                    );
+                    let date_today = get_date_today();
+                    info!("Building bill for admin at datestamp {}", &date_today);
 
-                                }
-                                None => {
-                                    let _subject = format!(
-                                        "Cervisia bill export on {}",
-                                        Utc::now().format("%d.%m.%Y")
-                                    );
-                                    let date_today = get_date_today();
-                                    info!("Building bill for admin at datestamp {}", &date_today);
-
-                                    let mut lines_a: Vec<String> = Vec::new();
-                                    let mut lines_b: Vec<String> = Vec::new();
-                                    if use_sewobe_form {
-                                        let body_a_cells = bill.format_as_sewobe_csv(date_today);
-                                        info!("Finished SEWOBE bill for admin");
-                                        for line_vec in body_a_cells {
-                                            lines_a.push(line_vec.join(";"));
-                                        }
-                                        let body_a: String = lines_a.join("\n");
-                                        filecontent = body_a;
-                                    } else {
-                                        let body_b_cells = bill.format_as_documentation();
-                                        info!("Finished internal bill for admin");
-                                        for line_vec in body_b_cells {
-                                            lines_b.push(line_vec.join(";"));
-                                        }
-                                        let body_b: String = lines_b.join("\n");
-                                        filecontent = body_b;
-                                    }
-
-                                }
+                    let mut lines_a: Vec<String> = Vec::new();
+                    let mut lines_b: Vec<String> = Vec::new();
+                    if use_sewobe_form {
+                        let body_a_cells = bill.format_as_sewobe_csv(date_today);
+                        info!("Finished SEWOBE bill for admin");
+                        for line_vec in body_a_cells {
+                            lines_a.push(line_vec.join(";"));
+                        }
+                        let body_a: String = lines_a.join("\n");
+                        filecontent = body_a;
+                    } else {
+                        let body_b_cells = bill.format_as_documentation();
+                        info!("Finished internal bill for admin");
+                        for line_vec in body_b_cells {
+                            lines_b.push(line_vec.join(";"));
+                        }
+                        let body_b: String = lines_b.join("\n");
+                        filecontent = body_b;
+                    }
+                }
             };
         }
 
 
-
-
-
-
-
-
-        let  filename = filetitle.to_string();
-        let zipfile= filecontent.to_string();
+        let filename = filetitle.to_string();
+        let zipfile = filecontent.to_string();
 
 
         println!("receive download code called");
@@ -582,21 +574,19 @@ pub mod responsehandlers {
         let content_type = "text/csv".parse::<mime::Mime>().unwrap();
 
 
-        let mut resp = Response::with((content_type, iron::status::Ok, zipfile ));
+        let mut resp = Response::with((content_type, iron::status::Ok, zipfile));
 
-        resp.headers.set( ContentDisposition {
+        resp.headers.set(ContentDisposition {
             disposition: DispositionType::Attachment,
             parameters: vec![DispositionParam::Filename(
                 Charset::Iso_8859_1, // The character set for the bytes of the filename
                 None, // The optional language tag (see `language-tag` crate)
-                filename.into_bytes() // the actual bytes of the filename
-            )]
+                filename.into_bytes(), // the actual bytes of the filename
+            )],
         });
 
         return Ok(resp);
-
     }
-
 
 
     fn extract_body(req: &mut iron::request::Request) -> String {
@@ -621,14 +611,14 @@ pub mod responsehandlers {
 
                 use rustix_bl::datastore::DatastoreQueries;
                 if match dat.datastore.get_purchase_timestamp(parsed_body.unique_id) {
-                    Some(ref t) => cur < t + (30i64 * 1000i64),
+                    Some(ref t) => cur < t + (60i64 * 1000i64),
                     None => false,
                 } {
                     return Ok(Response::with((
                         iron::status::Conflict,
                         serde_json::to_string(&ServerWriteResult {
                             error_message: Some(
-                                "A user may only undo a purchase before 30s have passed"
+                                "A user may only undo a purchase before 60s have passed"
                                     .to_string(),
                             ),
                             is_success: false,
@@ -656,7 +646,7 @@ pub mod responsehandlers {
                                         refreshed_data: sux,
                                     }),
                                 }).unwrap(),
-                            )))
+                            )));
                         }
                         Err(err) => {
                             return Ok(Response::with((
@@ -666,7 +656,7 @@ pub mod responsehandlers {
                                     is_success: false,
                                     content: None,
                                 }).unwrap(),
-                            )))
+                            )));
                         }
                     }
                 }
@@ -732,7 +722,7 @@ pub mod responsehandlers {
                                         refreshed_data: sux,
                                     }),
                                 }).unwrap(),
-                            )))
+                            )));
                         }
                         Err(err) => {
                             return Ok(Response::with((
@@ -742,7 +732,7 @@ pub mod responsehandlers {
                                     is_success: false,
                                     content: None,
                                 }).unwrap(),
-                            )))
+                            )));
                         }
                     }
                 }
@@ -807,7 +797,7 @@ pub mod responsehandlers {
                                 is_success: false,
                                 content: None,
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -897,7 +887,7 @@ pub mod responsehandlers {
                                 is_success: false,
                                 content: None,
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -948,7 +938,7 @@ pub mod responsehandlers {
                                 is_success: false,
                                 content: None,
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -990,7 +980,7 @@ pub mod responsehandlers {
                                     refreshed_data: sux,
                                 }),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                     Err(err) => {
                         return Ok(Response::with((
@@ -1000,7 +990,7 @@ pub mod responsehandlers {
                                 is_success: false,
                                 content: None,
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -1044,7 +1034,7 @@ pub mod responsehandlers {
                                     refreshed_data: sux,
                                 }),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                     Err(err) => {
                         return Ok(Response::with((
@@ -1054,7 +1044,7 @@ pub mod responsehandlers {
                                 is_success: false,
                                 content: None,
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -1097,7 +1087,7 @@ pub mod responsehandlers {
                                     refreshed_data: sux,
                                 }),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                     Err(err) => {
                         return Ok(Response::with((
@@ -1107,7 +1097,7 @@ pub mod responsehandlers {
                                 is_success: false,
                                 content: None,
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -1147,7 +1137,7 @@ pub mod responsehandlers {
                                     refreshed_data: sux,
                                 }),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                     Err(err) => {
                         return Ok(Response::with((
@@ -1157,7 +1147,7 @@ pub mod responsehandlers {
                                 is_success: false,
                                 content: None,
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -1197,7 +1187,7 @@ pub mod responsehandlers {
                                     refreshed_data: sux,
                                 }),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                     Err(err) => {
                         return Ok(Response::with((
@@ -1207,7 +1197,7 @@ pub mod responsehandlers {
                                 is_success: false,
                                 content: None,
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -1247,7 +1237,7 @@ pub mod responsehandlers {
                                     refreshed_data: sux,
                                 }),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                     Err(err) => {
                         return Ok(Response::with((
@@ -1257,7 +1247,7 @@ pub mod responsehandlers {
                                 is_success: false,
                                 content: None,
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -1272,7 +1262,6 @@ pub mod responsehandlers {
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
         let query_str = extract_query(req);
-
 
 
         match query_str {
@@ -1293,7 +1282,7 @@ pub mod responsehandlers {
                 );
 
 
-                println!("Going to change user to new state: result = {:?}" , result);
+                println!("Going to change user to new state: result = {:?}", result);
 
                 match result {
                     Ok(sux) => {
@@ -1307,7 +1296,7 @@ pub mod responsehandlers {
                                     refreshed_data: sux,
                                 }),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                     Err(err) => {
                         return Ok(Response::with((
@@ -1317,7 +1306,7 @@ pub mod responsehandlers {
                                 is_success: false,
                                 content: None,
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -1359,7 +1348,7 @@ pub mod responsehandlers {
                                     refreshed_data: sux,
                                 }),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                     Err(err) => {
                         return Ok(Response::with((
@@ -1369,7 +1358,7 @@ pub mod responsehandlers {
                                 is_success: false,
                                 content: None,
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -1412,7 +1401,7 @@ pub mod responsehandlers {
                                     refreshed_data: sux,
                                 }),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                     Err(err) => {
                         return Ok(Response::with((
@@ -1422,7 +1411,7 @@ pub mod responsehandlers {
                                 is_success: false,
                                 content: None,
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -1466,7 +1455,7 @@ pub mod responsehandlers {
                                     refreshed_data: sux,
                                 }),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                     Err(err) => {
                         return Ok(Response::with((
@@ -1476,7 +1465,7 @@ pub mod responsehandlers {
                                 is_success: false,
                                 content: None,
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -1517,7 +1506,7 @@ pub mod responsehandlers {
                                     refreshed_data: sux,
                                 }),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                     Err(err) => {
                         return Ok(Response::with((
@@ -1527,7 +1516,7 @@ pub mod responsehandlers {
                                 is_success: false,
                                 content: None,
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -1568,7 +1557,7 @@ pub mod responsehandlers {
                                     refreshed_data: sux,
                                 }),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                     Err(err) => {
                         return Ok(Response::with((
@@ -1578,7 +1567,7 @@ pub mod responsehandlers {
                                 is_success: false,
                                 content: None,
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -1736,7 +1725,7 @@ pub mod responsehandlers {
                                 is_success: false,
                                 content: None,
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -1777,7 +1766,7 @@ pub mod responsehandlers {
                                     refreshed_data: sux,
                                 }),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                     Err(err) => {
                         return Ok(Response::with((
@@ -1787,7 +1776,7 @@ pub mod responsehandlers {
                                 is_success: false,
                                 content: None,
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -1830,7 +1819,7 @@ pub mod responsehandlers {
                                     refreshed_data: sux,
                                 }),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                     Err(err) => {
                         return Ok(Response::with((
@@ -1840,7 +1829,7 @@ pub mod responsehandlers {
                                 is_success: false,
                                 content: None,
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -1865,7 +1854,7 @@ pub mod responsehandlers {
                         return Ok(Response::with((
                             iron::status::Ok,
                             serde_json::to_string(&sux).unwrap(),
-                        )))
+                        )));
                     }
                     Err(_) => {
                         return Ok(Response::with((
@@ -1876,7 +1865,7 @@ pub mod responsehandlers {
                                 to: 0,
                                 results: Vec::new(),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -1901,7 +1890,7 @@ pub mod responsehandlers {
                         return Ok(Response::with((
                             iron::status::Ok,
                             serde_json::to_string(&sux).unwrap(),
-                        )))
+                        )));
                     }
                     Err(_) => {
                         return Ok(Response::with((
@@ -1912,7 +1901,7 @@ pub mod responsehandlers {
                                 to: 0,
                                 results: Vec::new(),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -1937,7 +1926,7 @@ pub mod responsehandlers {
                         return Ok(Response::with((
                             iron::status::Ok,
                             serde_json::to_string(&sux).unwrap(),
-                        )))
+                        )));
                     }
                     Err(_) => {
                         return Ok(Response::with((
@@ -1948,7 +1937,7 @@ pub mod responsehandlers {
                                 to: 0,
                                 results: Vec::new(),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -1973,7 +1962,7 @@ pub mod responsehandlers {
                         return Ok(Response::with((
                             iron::status::Ok,
                             serde_json::to_string(&sux).unwrap(),
-                        )))
+                        )));
                     }
                     Err(_) => {
                         return Ok(Response::with((
@@ -1984,12 +1973,34 @@ pub mod responsehandlers {
                                 to: 0,
                                 results: Vec::new(),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
             _ => return Ok(Response::with(iron::status::BadRequest)),
         };
+    }
+
+    pub fn database_export_to_string(req: &mut iron::request::Request) -> IronResult<Response> {
+        let datholder = req.get::<State<SharedBackend>>().unwrap();
+        let dat = datholder.read().unwrap();
+
+        println!("beginning processing of request");
+
+        match &dat.persistencer.load_into_string() {
+            Ok(sux) => {
+                return Ok(Response::with((
+                    iron::status::Ok,
+                    sux.to_owned(),
+                )));
+            }
+            Err(_) => {
+                return Ok(Response::with((
+                                             iron::status::InternalServerError,
+                                             "Internal error happened"),
+                ));
+            }
+        }
     }
 
     pub fn all_users(req: &mut iron::request::Request) -> IronResult<Response> {
@@ -2008,7 +2019,7 @@ pub mod responsehandlers {
                         return Ok(Response::with((
                             iron::status::Ok,
                             serde_json::to_string(&sux).unwrap(),
-                        )))
+                        )));
                     }
                     Err(_) => {
                         return Ok(Response::with((
@@ -2019,7 +2030,7 @@ pub mod responsehandlers {
                                 to: 0,
                                 results: Vec::new(),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -2043,7 +2054,7 @@ pub mod responsehandlers {
                         return Ok(Response::with((
                             iron::status::Ok,
                             serde_json::to_string(&sux).unwrap(),
-                        )))
+                        )));
                     }
                     Err(_) => {
                         return Ok(Response::with((
@@ -2054,7 +2065,7 @@ pub mod responsehandlers {
                                 to: 0,
                                 results: Vec::new(),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -2079,7 +2090,7 @@ pub mod responsehandlers {
                         return Ok(Response::with((
                             iron::status::Ok,
                             serde_json::to_string(&sux).unwrap(),
-                        )))
+                        )));
                     }
                     Err(_) => {
                         return Ok(Response::with((
@@ -2090,7 +2101,7 @@ pub mod responsehandlers {
                                 to: 0,
                                 results: Vec::new(),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -2118,7 +2129,7 @@ pub mod responsehandlers {
                         return Ok(Response::with((
                             iron::status::Ok,
                             serde_json::to_string(&sux).unwrap(),
-                        )))
+                        )));
                     }
                     Err(_) => {
                         return Ok(Response::with((
@@ -2129,7 +2140,7 @@ pub mod responsehandlers {
                                 to: 0,
                                 results: Vec::new(),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -2155,7 +2166,7 @@ pub mod responsehandlers {
                         return Ok(Response::with((
                             iron::status::Ok,
                             serde_json::to_string(&sux).unwrap(),
-                        )))
+                        )));
                     }
                     Err(_) => {
                         return Ok(Response::with((
@@ -2166,7 +2177,7 @@ pub mod responsehandlers {
                                 to: 0,
                                 results: Vec::new(),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -2193,7 +2204,7 @@ pub mod responsehandlers {
                         return Ok(Response::with((
                             iron::status::Ok,
                             serde_json::to_string(&sux).unwrap(),
-                        )))
+                        )));
                     }
                     Err(_) => {
                         return Ok(Response::with((
@@ -2204,7 +2215,7 @@ pub mod responsehandlers {
                                 to: 0,
                                 results: Vec::new(),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -2229,7 +2240,7 @@ pub mod responsehandlers {
                         return Ok(Response::with((
                             iron::status::Ok,
                             serde_json::to_string(&sux).unwrap(),
-                        )))
+                        )));
                     }
                     Err(_) => {
                         return Ok(Response::with((
@@ -2240,7 +2251,7 @@ pub mod responsehandlers {
                                 to: 0,
                                 results: Vec::new(),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -2264,7 +2275,7 @@ pub mod responsehandlers {
                         return Ok(Response::with((
                             iron::status::Ok,
                             serde_json::to_string(&sux).unwrap(),
-                        )))
+                        )));
                     }
                     Err(_) => {
                         return Ok(Response::with((
@@ -2275,7 +2286,7 @@ pub mod responsehandlers {
                                 to: 0,
                                 results: Vec::new(),
                             }).unwrap(),
-                        )))
+                        )));
                     }
                 }
             }
@@ -2424,7 +2435,6 @@ pub fn blocking_http_post_call<T: serde::ser::Serialize>(
 
 #[cfg(test)]
 mod tests {
-
     use iron;
 
     use manager::tests::*;
@@ -2438,10 +2448,7 @@ mod tests {
     use server::*;
 
 
-
     use std::sync::Mutex;
-
-
 
 
     use url::form_urlencoded;
@@ -2482,8 +2489,8 @@ mod tests {
     }
 
     fn build_default_server<T>(function_to_fill_backend: T) -> (iron::Listening, ServerConfig)
-    where
-        T: Fn(&mut Backend) -> (),
+        where
+            T: Fn(&mut Backend) -> (),
     {
         let default_server_conf = get_server_config();
 
