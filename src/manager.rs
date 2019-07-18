@@ -1,4 +1,3 @@
-use rand::{Rng, SeedableRng, StdRng};
 use rustix_bl;
 use rustix_bl::datastore::*;
 use rustix_bl::rustix_backend::*;
@@ -11,6 +10,7 @@ use std;
 use std::collections::*;
 use std::vec::*;
 use typescriptify::TypeScriptifyTrait;
+use rand::prelude::*;
 
 #[derive(Serialize, Deserialize, TypeScriptify)]
 pub struct ParametersPagination {
@@ -1682,7 +1682,8 @@ pub fn fill_backend_with_medium_test_data(backend: &mut Backend) -> () {
     (*back).create_item("Kräussen".to_string(), 1100, Some("Beer".to_string()));
 
     let seed: &[u8; 32] = &[42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8];
-    let mut rng: StdRng = SeedableRng::from_seed(*seed);
+
+    let mut rng = StdRng::seed_from_u64(42u64);
 
     let mut timestamp_counter = 12345678i64;
     (*back).purchase(0, 2, timestamp_counter);
@@ -1735,7 +1736,8 @@ pub fn fill_backend_with_large_test_data(backend: &mut Backend) -> () {
     (*back).create_item("Kräussen".to_string(), 1100, Some("Beer".to_string()));
 
     let seed: [u8; 32] = [42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8, 42u8];
-    let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+    let mut rng = StdRng::seed_from_u64(42u64);
 
     let mut timestamp_counter = 12345678i64;
     (*back).purchase(0, 2, timestamp_counter);

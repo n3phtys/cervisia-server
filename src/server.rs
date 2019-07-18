@@ -2400,7 +2400,7 @@ pub fn blocking_http_get_call(url: &str) -> Result<String, reqwest::Error> {
     let mut res = reqwest::get(url)?;
 
     debug!("Status: {}", res.status());
-    debug!("Headers:\n{}", res.headers());
+    debug!("Headers:\n{:?}", res.headers());
 
     let mut s: String = "".to_string();
     let _size = res.read_to_string(&mut s);
@@ -2422,7 +2422,7 @@ pub fn blocking_http_post_call<T: serde::ser::Serialize>(
         .send()?;
 
     debug!("Status: {}", res.status());
-    debug!("Headers:\n{}", res.headers());
+    debug!("Headers:\n{:?}", res.headers());
 
     let mut s: String = "".to_string();
     let _size = res.read_to_string(&mut s);

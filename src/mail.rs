@@ -4,8 +4,7 @@ use lettre::smtp::authentication::{Credentials, Mechanism};
 use lettre::smtp::client::net::*;
 use lettre::smtp::ClientSecurity;
 use lettre::smtp::ConnectionReuseParameters;
-use lettre::SendableEmail;
-use lettre::{EmailTransport, SimpleSendableEmail, SmtpTransport};
+use lettre::{SendmailTransport, SendableEmail, SmtpTransport, Envelope, EmailAddress, SmtpClient, Transport};
 use lettre_email::*;
 use mime;
 use native_tls::TlsConnector;
@@ -141,7 +140,7 @@ Content-Disposition: attachment;
                 }
 
                 let attachments_size = string_size(attachments);
-                let _email: SimpleSendableEmail = if false
+                let _email: SendableEmail = if false
                 /*&& !is_too_large_for_inline(attachments)*/
                 {
                     let email_string: String = format!(
@@ -177,34 +176,30 @@ Content-Type: text/plain; charset=utf-8
                         boundary
                     );
 
-                    let email = SimpleSendableEmail::new(
-                        config.sender_email_address.to_string(),
-                        &vec![receiver_email.to_string()],
+                    let email = SendableEmail::new(Envelope::new(
+                        EmailAddress::new(config.sender_email_address.to_owned()).ok(),
+                        vec![EmailAddress::new(receiver_email.to_owned()).unwrap()]).unwrap(),
                         message_id,
-                        email_string.to_string(),
-                    ).unwrap();
+                        email_string.to_string().into_bytes(),
+                    );
 
                     info!(
-                        "Trying to send email: {}",
-                        std::str::from_utf8(*(email.message())).unwrap()
+                        "Trying to send email"
                     );
 
                     let tls: ClientTlsParameters = {
-                        let mut tls_builder = TlsConnector::builder().unwrap();
-                        tls_builder
-                            .supported_protocols(DEFAULT_TLS_PROTOCOLS)
-                            .unwrap();
+                        let mut tls_builder = TlsConnector::builder().build().unwrap();
 
                         let tls_parameters = ClientTlsParameters::new(
                             config.smtp_host_address.to_string(),
-                            tls_builder.build().unwrap(),
+                            tls_builder,
                         );
 
                         tls_parameters
                     };
 
                     // Connect to a remote server on a custom port
-                    let mut mailer = try!(SmtpTransport::builder(format!("{}:{}", config.smtp_host_address, config.smtp_port), ClientSecurity::Required(tls)))
+                    let mut mailer = SmtpTransport::new(SmtpClient::new(format!("{}:{}", config.smtp_host_address, config.smtp_port), ClientSecurity::Required(tls))?
                         // Add credentials for authentication
                         .credentials(Credentials::new(config.smpt_credentials_loginname.to_string(), config.smpt_credentials_password.to_string()))
                         // Enable SMTPUTF8 if the server supports it
@@ -212,9 +207,9 @@ Content-Type: text/plain; charset=utf-8
                         // Configure expected authentication mechanism
                         .authentication_mechanism(Mechanism::Plain)
                         // Enable connection reuse
-                        .connection_reuse(ConnectionReuseParameters::ReuseUnlimited).build();
+                        .connection_reuse(ConnectionReuseParameters::ReuseUnlimited));
 
-                    let result_1 = mailer.send(&email);
+                    let result_1 = mailer.send(email);
                     info!("Sending email result: {:?}", result_1);
                     if !result_1.is_ok() {
                         error!(
@@ -231,6 +226,13 @@ Content-Type: text/plain; charset=utf-8
 
                     let mimetype: mime::Mime = "application/zip".parse().unwrap();
 
+                    let email =  SendableEmail::new(Envelope::new(
+                        EmailAddress::new(config.sender_email_address.to_owned()).ok(),
+                        vec![EmailAddress::new(receiver_email.to_owned()).unwrap()]).unwrap(),
+                                       message_id,
+                                                    body_block.to_string().into_bytes(),
+                    );
+                    /*
                     let email = EmailBuilder::new()
                         // Addresses can be specified by the tuple (email, alias)
                         .to(receiver_email.to_string())
@@ -238,31 +240,27 @@ Content-Type: text/plain; charset=utf-8
                         .from(config.sender_email_address.to_string())
                         .subject(subject)
                         .text(body_block)
-                        .attachment(Path::new(&zipfile), None, &mimetype).unwrap()
+                        //TODO: reimplement.attachment(Path::new(&zipfile), "my_attachment.zip", &mimetype).unwrap()
                         .build()
-                        .unwrap();
+                        .unwrap();*/
 
                     info!(
-                        "Trying to send email: {}",
-                        std::str::from_utf8(*(email.message())).unwrap()
+                        "Trying to send email"
                     );
 
                     let tls: ClientTlsParameters = {
-                        let mut tls_builder = TlsConnector::builder().unwrap();
-                        tls_builder
-                            .supported_protocols(DEFAULT_TLS_PROTOCOLS)
-                            .unwrap();
+                        let mut tls_builder = TlsConnector::builder().build().unwrap();
 
                         let tls_parameters = ClientTlsParameters::new(
                             config.smtp_host_address.to_string(),
-                            tls_builder.build().unwrap(),
+                            tls_builder,
                         );
 
                         tls_parameters
                     };
 
                     // Connect to a remote server on a custom port
-                    let mut mailer = try!(SmtpTransport::builder(format!("{}:{}", config.smtp_host_address, config.smtp_port), ClientSecurity::Required(tls)))
+                    let mut mailer = SmtpTransport::new(SmtpClient::new(format!("{}:{}", config.smtp_host_address, config.smtp_port), ClientSecurity::Required(tls))?
                         // Add credentials for authentication
                         .credentials(Credentials::new(config.smpt_credentials_loginname.to_string(), config.smpt_credentials_password.to_string()))
                         // Enable SMTPUTF8 if the server supports it
@@ -270,10 +268,10 @@ Content-Type: text/plain; charset=utf-8
                         // Configure expected authentication mechanism
                         .authentication_mechanism(Mechanism::Plain)
                         // Enable connection reuse
-                        .connection_reuse(ConnectionReuseParameters::ReuseUnlimited).build();
+                        .connection_reuse(ConnectionReuseParameters::ReuseUnlimited));
 
-                    info!("trying to send email: {:?}", &email);
-                    let result_1 = mailer.send(&email);
+                    info!("trying to send email");
+                    let result_1 = mailer.send(email);
                     info!("Sending email result: {:?}", result_1);
                     if !result_1.is_ok() {
                         error!("Error sending mail with zip attachment. Whole mail size would have been {} bytes", attachments_size);
