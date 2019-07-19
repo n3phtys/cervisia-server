@@ -610,16 +610,23 @@ pub mod responsehandlers {
                 let cur = current_time_millis();
 
                 use rustix_bl::datastore::DatastoreQueries;
+
+                let t_if = match dat.datastore.get_purchase_timestamp(parsed_body.unique_id) {
+                    Some(ref t) => *t,
+                    None => -1i64,
+                };
+
                 if match dat.datastore.get_purchase_timestamp(parsed_body.unique_id) {
-                    Some(ref t) => cur < t + (60i64 * 1000i64),
+                    Some(ref t) => cur - (60i64 * 1000i64) > *t ,
                     None => false,
                 } {
+                    let seconds_too_late = (cur - (60i64 * 1000i64) - t_if) / 1000i64;
                     return Ok(Response::with((
                         iron::status::Conflict,
                         serde_json::to_string(&ServerWriteResult {
                             error_message: Some(
-                                "A user may only undo a purchase before 60s have passed"
-                                    .to_string(),
+                                format!("A user may only undo a purchase before 60s have passed. With current time = {}  and  purchase's timestamp = {}  you were {} seconds too late."
+                                , cur, t_if, seconds_too_late),
                             ),
                             is_success: false,
                             content: None,
