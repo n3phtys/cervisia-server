@@ -60,21 +60,24 @@ pub fn import_users_into_store(
             });
             println!("Created new user {}...", import_user.name);
         }
-        let existing_user: rustix_bl::datastore::User =
-            get_user_by_name(&backend.datastore, &import_user.name).unwrap();
-        //for every user in list, check if already contained (in that case, check if external_user_id is already set), update in that case
-        if existing_user.external_user_id.is_none()
-            || !existing_user.external_user_id.unwrap().eq(&import_user.id)
-        {
-            backend.apply(&rustix_event_shop::BLEvents::UpdateUser {
-                user_id: existing_user.user_id,
-                username: import_user.name.to_string(),
-                is_billed: existing_user.is_billed,
-                is_sepa: existing_user.is_sepa,
-                is_highlighted: existing_user.highlight_in_ui,
-                external_user_id: Some(import_user.id),
-            });
-            println!("Updated user {}...", import_user.name);
+        let opt = get_user_by_name(&backend.datastore, &import_user.name);
+        if opt.is_some() {
+            let existing_user: rustix_bl::datastore::User =
+                opt.unwrap();
+            //for every user in list, check if already contained (in that case, check if external_user_id is already set), update in that case
+            if existing_user.external_user_id.is_none()
+                || !existing_user.external_user_id.unwrap().eq(&import_user.id)
+            {
+                backend.apply(&rustix_event_shop::BLEvents::UpdateUser {
+                    user_id: existing_user.user_id,
+                    username: import_user.name.to_string(),
+                    is_billed: existing_user.is_billed,
+                    is_sepa: existing_user.is_sepa,
+                    is_highlighted: existing_user.highlight_in_ui,
+                    external_user_id: Some(import_user.id),
+                });
+                println!("Updated user {}...", import_user.name);
+            }
         }
     }
 }
