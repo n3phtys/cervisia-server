@@ -32,6 +32,7 @@ extern crate typescriptify_derive;
 extern crate openssl_probe;
 extern crate uuid;
 extern crate zip;
+extern crate jsonwebtoken as jwt;
 
 use configuration::*;
 use server::*;

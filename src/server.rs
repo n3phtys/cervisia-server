@@ -28,11 +28,14 @@ use manager;
 use manager::fill_backend_with_large_test_data;
 use manager::*;
 use persistent::State;
+use std::string::String;
 use responsehandlers::*;
 use router::Router;
 use rustix_bl::rustix_backend::WriteBackend;
 use typescriptify::TypeScriptifyTrait;
 use billformatter::get_date_today;
+use rand::Rng;
+use jwt::{encode, decode, Header, Algorithm, Validation};
 
 
 use params::{Params, Value};
@@ -45,6 +48,20 @@ pub struct SharedBackend;
 impl Key for SharedBackend {
     type Value = Backend;
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+struct BillJwtClaims {
+    sub: String,
+    exp: usize,
+    from: i64,
+    to: i64,
+    sewobe: bool,
+    user: Option<u32>,
+}
+
+#[derive(Copy, Clone)]
+pub struct SecretKey;
+impl Key for SecretKey { type Value = String; }
 
 fn typescript_definitions() -> Vec<String> {
     return vec![
@@ -182,6 +199,9 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     router.get("/bill/download", receive_download_code, "downloadbill");
     router.get("/bill/download/secure", receive_download_code, "downloadbillsecure"); //TODO: make into own function receive_download_code_secure
 
+    router.get(PATH_PUBLIC_TICKET, public_ticket_receiver, "publicticketreceiver");
+    router.get("/bill/download/requestjwt", request_bill_jwt_link, "requestbilljwtlink");
+
     {
         let config = config.clone();
         router.post(
@@ -256,6 +276,17 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
 
         chain.link(state);
 
+
+        let jwt_secret: String = {
+            let mut rng = rand::thread_rng();
+            let random_nr: u64 = rng.gen();
+            format!("{}", random_nr)
+        };
+
+        let jwt_state = persistent::Read::<SecretKey>::both(jwt_secret);
+
+        chain.link(jwt_state);
+
         let _ = mount
             .mount("/api/", chain)
             .mount("/", Static::new(Path::new(&config.web_path)));
@@ -266,6 +297,15 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     let serv = Iron::new(mount).http(url).unwrap();
     return serv;
 }
+
+const PATH_PUBLIC_TICKET: &str = "/public/ticket";
+
+pub fn get_ticket_url(jwt: &str) -> String {
+    let base_url = std::env::var("CERVISIA_BASE_URL").unwrap_or("http://localhost:8080".to_owned());
+    let api_path = std::env::var("CERVISIA_API_PATH").unwrap_or("/api".to_owned());
+    return format!("{}{}{}?jwt={}", base_url, api_path, PATH_PUBLIC_TICKET, jwt);
+}
+
 
 pub mod responsehandlers {
     use super::*;
@@ -483,6 +523,78 @@ pub mod responsehandlers {
         return Ok(resp);
     }
 
+    fn get_jwt_for_bill(jwt_secret: &str, from: i64, to: i64, sewobe_form: bool, limit_to_user: Option<u32>) -> String {
+        let expiration_epoch_seconds = (time::get_time().sec as usize) + 120usize;
+        let my_claims = BillJwtClaims {
+            sub: "bill-download".to_string(),
+            exp: expiration_epoch_seconds,
+            from,
+            to,
+            sewobe: false,
+            user: None
+        };
+        let token = encode(&Header::default(), &my_claims, jwt_secret.as_bytes()).unwrap_or("invalid-token-generation".to_owned());
+        return token;
+    }
+
+
+    pub fn request_bill_jwt_link(req: &mut iron::request::Request) -> IronResult<Response> {
+        let arc = req.get::<persistent::Read<SecretKey>>().unwrap();
+        let jwt_secret = arc.as_ref();
+
+        let fromstr = extract_query_param(req, "from");
+        let tostr = extract_query_param(req, "to");
+        let sewobeform = extract_query_param(req, "sewobeform");
+        let limitedtouser = extract_query_param(req, "limitedtouser");
+        let limit_to_user: Option<u32> = limitedtouser.unwrap_or("no-user-declared".to_string()).parse::<u32>().ok();
+        let use_sewobe_form: bool = sewobeform.unwrap_or("true".to_string()) != "false";
+        let from: i64 = fromstr.unwrap_or("no-date-declared".to_string()).parse::<i64>().ok().unwrap_or(0);
+        let to: i64 = tostr.unwrap_or("no-date-declared".to_string()).parse::<i64>().ok().unwrap_or(0);
+
+
+        let mresponsetext : String = get_jwt_for_bill(jwt_secret, from, to, use_sewobe_form, limit_to_user);
+        let content_type = "text/html".parse::<mime::Mime>().unwrap();
+        let resp = Response::with((content_type, iron::status::Ok, mresponsetext));
+
+        return Ok(resp);
+    }
+
+    pub fn public_ticket_receiver(req: &mut iron::request::Request) -> IronResult<Response> {
+        let jwtstr = extract_query_param(req, "jwt").unwrap_or("no-token-given".to_owned());
+
+        let arc = req.get::<persistent::Read<SecretKey>>().unwrap();
+        let jwt_secret = arc.as_ref();
+
+
+
+        let mresponsetext : String = format!("Hello World with secret: {}", jwt_secret);
+        let content_type = "text/html".parse::<mime::Mime>().unwrap();
+        let resp = Response::with((content_type, iron::status::Ok, mresponsetext));
+
+        return Ok(resp);
+    }
+
+
+    pub fn public_ticket_receiver_actual_impl(req: &mut iron::request::Request) -> IronResult<Response> {
+        let jwtstr = extract_query_param(req, "jwt").unwrap_or("no-token-given".to_owned());
+
+        let arc = req.get::<persistent::Read<SecretKey>>().unwrap();
+        let jwt_secret = arc.as_ref();
+
+        // treat error case humanely by throwing 404 in that case
+        let token_result = decode::<BillJwtClaims>(&jwtstr, "secret".as_ref(), &Validation::default());
+        match token_result {
+            Err(e) => {
+                return Ok(Response::with((iron::status::NotFound)));
+            }
+            Ok(token) => {
+                let claims = token.claims;
+                //retrieve bill for given claims, and return as csv download
+                return build_bill_download(req, claims.user, claims.sewobe, claims.from, claims.to);
+            }
+        }
+
+    }
 
     pub fn receive_download_code(req: &mut iron::request::Request) -> IronResult<Response> {
         let fromstr = extract_query_param(req, "from");
@@ -494,6 +606,10 @@ pub mod responsehandlers {
         let from: i64 = fromstr.unwrap_or("no-date-declared".to_string()).parse::<i64>().ok().unwrap_or(0);
         let to: i64 = tostr.unwrap_or("no-date-declared".to_string()).parse::<i64>().ok().unwrap_or(0);
 
+        return build_bill_download( req, limit_to_user, use_sewobe_form, from, to);
+    }
+
+    fn build_bill_download(req: &mut iron::request::Request, limit_to_user: Option<u32>, use_sewobe_form: bool, from: i64, to: i64 ) -> IronResult<Response> {
         let filetitle: String = build_filename();
         let filecontent: String;
         {
