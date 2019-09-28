@@ -481,8 +481,11 @@ pub mod responsehandlers {
     }
 
 
-    fn build_filename() -> String {
-        return "bill.csv".to_string();
+    fn build_filename(timestamp: i64) -> String {
+        let naive = NaiveDateTime::from_timestamp(timestamp, 0);
+        let datetime: DateTime<Utc> = DateTime::from_utc(naive, Utc);
+        let newdate = datetime.format("%Y_%m_%d_%H_%M_%S");
+        return format!("{}_abrechnung.csv", newdate);
     }
 
     pub fn list_bills_api(req: &mut iron::request::Request) -> IronResult<Response> {
@@ -610,7 +613,7 @@ pub mod responsehandlers {
     }
 
     fn build_bill_download(req: &mut iron::request::Request, limit_to_user: Option<u32>, use_sewobe_form: bool, from: i64, to: i64 ) -> IronResult<Response> {
-        let filetitle: String = build_filename();
+        let filetitle: String = build_filename(to);
         let filecontent: String;
         {
             let datholder = req.get::<State<SharedBackend>>().unwrap();
