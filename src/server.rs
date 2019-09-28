@@ -52,7 +52,7 @@ impl Key for SharedBackend {
 #[derive(Debug, Serialize, Deserialize)]
 struct BillJwtClaims {
     sub: String,
-    exp: usize,
+    exp: i64,
     from: i64,
     to: i64,
     sewobe: bool,
@@ -525,7 +525,7 @@ pub mod responsehandlers {
     }
 
     fn get_jwt_for_bill(jwt_secret: &str, from: i64, to: i64, sewobe_form: bool, limit_to_user: Option<u32>) -> String {
-        let expiration_epoch_seconds = (time::get_time().sec as usize) + 120usize;
+        let expiration_epoch_seconds =  Utc::now().timestamp() + 180i64;
         let my_claims = BillJwtClaims {
             sub: "bill-download".to_string(),
             exp: expiration_epoch_seconds,
@@ -581,10 +581,11 @@ pub mod responsehandlers {
         let jwt_secret = arc.as_ref();
 
         // treat error case humanely by throwing 404 in that case
-        let token_result = decode::<BillJwtClaims>(&jwtstr, "secret".as_ref(), &Validation::default());
+        let token_result = decode::<BillJwtClaims>(&jwtstr, jwt_secret.as_bytes(), &Validation::default());
         match token_result {
             Err(e) => {
-                return Ok(Response::with((iron::status::NotFound)));
+                let content_type = "text/html".parse::<mime::Mime>().unwrap();
+                return Ok(Response::with((content_type, iron::status::BadRequest, format!("JWT did not parse correctly: {}   <br> with reason: <br>{:?}<br>", jwtstr, e))));
             }
             Ok(token) => {
                 let claims = token.claims;
