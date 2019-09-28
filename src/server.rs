@@ -200,6 +200,7 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     router.get("/bill/download/secure", receive_download_code, "downloadbillsecure"); //TODO: make into own function receive_download_code_secure
 
     router.get(PATH_PUBLIC_TICKET, public_ticket_receiver, "publicticketreceiver");
+    router.get("/public/health", public_health_check, "publichealthcheck");
     router.get("/bill/download/requestjwt", request_bill_jwt_link, "requestbilljwtlink");
 
     {
@@ -552,30 +553,28 @@ pub mod responsehandlers {
         let to: i64 = tostr.unwrap_or("no-date-declared".to_string()).parse::<i64>().ok().unwrap_or(0);
 
 
-        let mresponsetext : String = get_jwt_for_bill(jwt_secret, from, to, use_sewobe_form, limit_to_user);
+
+        let jwt = get_jwt_for_bill(jwt_secret, from, to, use_sewobe_form, limit_to_user);
+
+        let mresponsetext : String = get_ticket_url(&jwt);
         let content_type = "text/html".parse::<mime::Mime>().unwrap();
         let resp = Response::with((content_type, iron::status::Ok, mresponsetext));
 
         return Ok(resp);
     }
+
+    pub fn public_health_check(req: &mut iron::request::Request) -> IronResult<Response> {
+
+        let mresponsetext : String = "OK".to_owned();
+        let content_type = "text/html".parse::<mime::Mime>().unwrap();
+        let resp = Response::with((content_type, iron::status::Ok, mresponsetext));
+
+        return Ok(resp);
+    }
+
+
 
     pub fn public_ticket_receiver(req: &mut iron::request::Request) -> IronResult<Response> {
-        let jwtstr = extract_query_param(req, "jwt").unwrap_or("no-token-given".to_owned());
-
-        let arc = req.get::<persistent::Read<SecretKey>>().unwrap();
-        let jwt_secret = arc.as_ref();
-
-
-
-        let mresponsetext : String = format!("Hello World with secret: {}", jwt_secret);
-        let content_type = "text/html".parse::<mime::Mime>().unwrap();
-        let resp = Response::with((content_type, iron::status::Ok, mresponsetext));
-
-        return Ok(resp);
-    }
-
-
-    pub fn public_ticket_receiver_actual_impl(req: &mut iron::request::Request) -> IronResult<Response> {
         let jwtstr = extract_query_param(req, "jwt").unwrap_or("no-token-given".to_owned());
 
         let arc = req.get::<persistent::Read<SecretKey>>().unwrap();
