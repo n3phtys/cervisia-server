@@ -481,8 +481,8 @@ pub mod responsehandlers {
     }
 
 
-    fn build_filename(timestamp: i64) -> String {
-        let naive = NaiveDateTime::from_timestamp(timestamp, 0);
+    fn build_filename(timestamp_millis: i64) -> String {
+        let naive = NaiveDateTime::from_timestamp(timestamp_millis / 1000i64, 0);
         let datetime: DateTime<Utc> = DateTime::from_utc(naive, Utc);
         let newdate = datetime.format("%Y_%m_%d_%H_%M_%S");
         return format!("{}_abrechnung.csv", newdate);
@@ -534,8 +534,8 @@ pub mod responsehandlers {
             exp: expiration_epoch_seconds,
             from,
             to,
-            sewobe: false,
-            user: None
+            sewobe: sewobe_form,
+            user: limit_to_user
         };
         let token = encode(&Header::default(), &my_claims, jwt_secret.as_bytes()).unwrap_or("invalid-token-generation".to_owned());
         return token;
