@@ -678,7 +678,13 @@ impl BillFormatting for Bill {
             && users.get(user_id).unwrap().external_user_id.is_some()
             && users.get(user_id).unwrap().is_billed
             && !self.users_that_will_not_be_billed.contains(user_id);
-        let consumption = self.finalized_data.user_consumption.get(user_id).unwrap();
+        let consumption_opt = self.finalized_data.user_consumption.get(user_id);
+
+        if consumption_opt.is_none() {
+            return result;
+        }
+
+        let consumption = consumption_opt.unwrap();
 
         if users.get(user_id).is_some() && users.get(user_id).unwrap().external_user_id.is_some() {
             let external_user_id: String = users
