@@ -22,21 +22,20 @@ use staticfile::Static;
 use std;
 use std::io::Read;
 
+use billformatter::get_date_today;
 use iron::typemap::Key;
+use jwt::{decode, encode, Algorithm, Header, Validation};
 use mail;
 use manager;
 use manager::fill_backend_with_large_test_data;
 use manager::*;
 use persistent::State;
-use std::string::String;
+use rand::Rng;
 use responsehandlers::*;
 use router::Router;
 use rustix_bl::rustix_backend::WriteBackend;
+use std::string::String;
 use typescriptify::TypeScriptifyTrait;
-use billformatter::get_date_today;
-use rand::Rng;
-use jwt::{encode, decode, Header, Algorithm, Validation};
-
 
 use params::{Params, Value};
 
@@ -174,9 +173,41 @@ pub fn build_server(config: &ServerConfig, backend: Option<Backend>) -> iron::Li
     router.post("/items/update", update_item, "updateitem");
     router.post("/users/delete", delete_user, "deleteuser");
     router.post("/items/delete", delete_item, "deleteitem");
-    router.post("/purchases", simple_purchase, "addsimplepurchase");
-    router.post("/purchases/cart", cart_purchase, "addcartpurchase");
-    router.post("/purchases/ffa", ffa_purchase, "addffapurchase");
+
+    {
+        let config = config.clone();
+        router.post(
+            "/purchases",
+            move |req: &mut iron::request::Request| {
+                let conf = config.clone();
+                simple_purchase(req, &conf)
+            },
+            "addsimplepurchase",
+        );
+    }
+    {
+        let config = config.clone();
+        router.post(
+            "/purchases/cart",
+            move |req: &mut iron::request::Request| {
+                let conf = config.clone();
+                cart_purchase(req, &conf)
+            },
+            "addcartpurchase",
+        );
+    }
+    {
+        let config = config.clone();
+        router.post(
+            "/purchases/ffa",
+            move |req: &mut iron::request::Request| {
+                let conf = config.clone();
+                ffa_purchase(req, &conf)
+            },
+            "addffapurchase",
+        );
+    }
+
     router.post(
         "/purchases/undo/user",
         undo_purchase_by_user,
@@ -313,12 +344,11 @@ pub mod responsehandlers {
     use billformatter::BillFormatting;
     use manager::*;
 
-
-    use iron::mime;
-    use iron::headers::ContentDisposition;
-    use iron::headers::DispositionType;
-    use iron::headers::DispositionParam;
     use iron::headers::Charset;
+    use iron::headers::ContentDisposition;
+    use iron::headers::DispositionParam;
+    use iron::headers::DispositionType;
+    use iron::mime;
     use rustix_bl::persistencer::Persistencer;
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -653,10 +683,8 @@ pub mod responsehandlers {
                     filecontent = lines.join("\n");
                 }
                 None => {
-                    let _subject = format!(
-                        "Cervisia bill export on {}",
-                        Utc::now().format("%d.%m.%Y")
-                    );
+                    let _subject =
+                        format!("Cervisia bill export on {}", Utc::now().format("%d.%m.%Y"));
                     let date_today = get_date_today();
                     info!("Building bill for admin at datestamp {}", &date_today);
 
@@ -683,30 +711,26 @@ pub mod responsehandlers {
             };
         }
 
-
         let filename = filetitle.to_string();
         let zipfile = filecontent.to_string();
-
 
         println!("receive download code called");
 
         let content_type = "text/csv".parse::<mime::Mime>().unwrap();
-
 
         let mut resp = Response::with((content_type, iron::status::Ok, zipfile));
 
         resp.headers.set(ContentDisposition {
             disposition: DispositionType::Attachment,
             parameters: vec![DispositionParam::Filename(
-                Charset::Iso_8859_1, // The character set for the bytes of the filename
-                None, // The optional language tag (see `language-tag` crate)
+                Charset::Iso_8859_1,   // The character set for the bytes of the filename
+                None,                  // The optional language tag (see `language-tag` crate)
                 filename.into_bytes(), // the actual bytes of the filename
             )],
         });
 
         return Ok(resp);
     }
-
 
     fn extract_body(req: &mut iron::request::Request) -> String {
         let mut s = String::new();
@@ -736,7 +760,7 @@ pub mod responsehandlers {
                 };
 
                 if match dat.datastore.get_purchase_timestamp(parsed_body.unique_id) {
-                    Some(ref t) => cur - (60i64 * 1000i64) > *t ,
+                    Some(ref t) => cur - (60i64 * 1000i64) > *t,
                     None => false,
                 } {
                     let seconds_too_late = (cur - (60i64 * 1000i64) - t_if) / 1000i64;
@@ -771,7 +795,8 @@ pub mod responsehandlers {
                                         timestamp_epoch_millis: current_time_millis(),
                                         refreshed_data: sux,
                                     }),
-                                }).unwrap(),
+                                })
+                                .unwrap(),
                             )));
                         }
                         Err(err) => {
@@ -781,7 +806,8 @@ pub mod responsehandlers {
                                     error_message: Some(err.description().to_string()),
                                     is_success: false,
                                     content: None,
-                                }).unwrap(),
+                                })
+                                .unwrap(),
                             )));
                         }
                     }
@@ -817,7 +843,8 @@ pub mod responsehandlers {
                 let param: ParametersAll = serde_json::from_str(&json_query).unwrap();
 
                 use rustix_bl::datastore::DatastoreQueries;
-                if dat.datastore
+                if dat
+                    .datastore
                     .get_purchase_timestamp(parsed_body.unique_id)
                     .is_none()
                 {
@@ -847,7 +874,8 @@ pub mod responsehandlers {
                                         timestamp_epoch_millis: current_time_millis(),
                                         refreshed_data: sux,
                                     }),
-                                }).unwrap(),
+                                })
+                                .unwrap(),
                             )));
                         }
                         Err(err) => {
@@ -857,7 +885,8 @@ pub mod responsehandlers {
                                     error_message: Some(err.description().to_string()),
                                     is_success: false,
                                     content: None,
-                                }).unwrap(),
+                                })
+                                .unwrap(),
                             )));
                         }
                     }
@@ -878,7 +907,10 @@ pub mod responsehandlers {
         )));
     }
 
-    pub fn simple_purchase(req: &mut iron::request::Request) -> IronResult<Response> {
+    pub fn simple_purchase(
+        req: &mut iron::request::Request,
+        config: &ServerConfig,
+    ) -> IronResult<Response> {
         let posted_body = extract_body(req);
         debug!("posted_body = {:?}", posted_body);
         let parsed_body: MakeSimplePurchase = serde_json::from_str(&posted_body).unwrap();
@@ -902,7 +934,7 @@ pub mod responsehandlers {
 
                 match result {
                     Ok(sux) => {
-                        log_purchase(&dat, parsed_body.item_id, Some(parsed_body.user_id));
+                        log_purchase(&dat, parsed_body.item_id, Some(parsed_body.user_id), config, dat.datastore.last_millis_of_purchase_by_user.get(&parsed_body.user_id));
                         return Ok(Response::with((
                             iron::status::Ok,
                             serde_json::to_string(&ServerWriteResult {
@@ -912,7 +944,8 @@ pub mod responsehandlers {
                                     timestamp_epoch_millis: current_time_millis(),
                                     refreshed_data: sux,
                                 }),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                     Err(err) => {
@@ -922,7 +955,8 @@ pub mod responsehandlers {
                                 error_message: Some(err.description().to_string()),
                                 is_success: false,
                                 content: None,
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -931,7 +965,13 @@ pub mod responsehandlers {
         };
     }
 
-    fn log_purchase(dat: &Backend, item_id: u32, user_id: Option<u32>) {
+fn log_purchase(
+        dat: &Backend,
+        item_id: u32,
+        user_id: Option<u32>,
+        config: &ServerConfig,
+        last_timestamp: Option<&i64>,
+    ) {
         let item_opt = dat.datastore.items.get(&item_id);
         if item_opt.is_some() {
             let item = item_opt.unwrap();
@@ -944,6 +984,14 @@ pub mod responsehandlers {
                             "Purchase by {} (id = {}): item {} with cost of {} cents",
                             user.username, user.user_id, item.name, item.cost_cents
                         );
+                        let now = current_time_millis();
+                        inform_user(
+                            now,
+                            *last_timestamp.unwrap_or(&now),
+                            item.name.clone(),
+                            user.clone().external_user_id,
+                            config,
+                        )
                     } else {
                         error!("Cannot find user with user_id = {}", uid);
                     }
@@ -960,7 +1008,10 @@ pub mod responsehandlers {
         }
     }
 
-    pub fn cart_purchase(req: &mut iron::request::Request) -> IronResult<Response> {
+    pub fn cart_purchase(
+        req: &mut iron::request::Request,
+        config: &ServerConfig,
+    ) -> IronResult<Response> {
         let posted_body = extract_body(req);
         debug!("posted_body = {:?}", posted_body);
         let parsed_body: MakeCartPurchase = serde_json::from_str(&posted_body).unwrap();
@@ -991,7 +1042,15 @@ pub mod responsehandlers {
                 match result {
                     Ok(sux) => {
                         for item_id in item_ids {
-                            log_purchase(&dat, item_id, Some(parsed_body.user_id));
+                            log_purchase(
+                                &dat,
+                                item_id,
+                                Some(parsed_body.user_id),
+                                config,
+                                dat.datastore
+                                    .last_millis_of_purchase_by_user
+                                    .get(&parsed_body.user_id),
+                            );
                         }
                         return Ok(Response::with((
                             iron::status::Ok,
@@ -1002,7 +1061,8 @@ pub mod responsehandlers {
                                     timestamp_epoch_millis: current_time_millis(),
                                     refreshed_data: sux,
                                 }),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                     Err(err) => {
@@ -1012,7 +1072,8 @@ pub mod responsehandlers {
                                 error_message: Some(err.description().to_string()),
                                 is_success: false,
                                 content: None,
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -1021,7 +1082,10 @@ pub mod responsehandlers {
         };
     }
 
-    pub fn ffa_purchase(req: &mut iron::request::Request) -> IronResult<Response> {
+    pub fn ffa_purchase(
+        req: &mut iron::request::Request,
+        config: &ServerConfig,
+    ) -> IronResult<Response> {
         let posted_body = extract_body(req);
         debug!("posted_body = {:?}", posted_body);
         let parsed_body: MakeFFAPurchase = serde_json::from_str(&posted_body).unwrap();
@@ -1043,7 +1107,7 @@ pub mod responsehandlers {
 
                 match result {
                     Ok(sux) => {
-                        log_purchase(&dat, parsed_body.item_id, None);
+                        log_purchase(&dat, parsed_body.item_id, None, config, None);
                         return Ok(Response::with((
                             iron::status::Ok,
                             serde_json::to_string(&ServerWriteResult {
@@ -1053,7 +1117,8 @@ pub mod responsehandlers {
                                     timestamp_epoch_millis: current_time_millis(),
                                     refreshed_data: sux,
                                 }),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                     Err(err) => {
@@ -1063,7 +1128,8 @@ pub mod responsehandlers {
                                 error_message: Some(err.description().to_string()),
                                 is_success: false,
                                 content: None,
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -1105,7 +1171,8 @@ pub mod responsehandlers {
                                     timestamp_epoch_millis: current_time_millis(),
                                     refreshed_data: sux,
                                 }),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                     Err(err) => {
@@ -1115,7 +1182,8 @@ pub mod responsehandlers {
                                 error_message: Some(err.description().to_string()),
                                 is_success: false,
                                 content: None,
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -1159,7 +1227,8 @@ pub mod responsehandlers {
                                     timestamp_epoch_millis: current_time_millis(),
                                     refreshed_data: sux,
                                 }),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                     Err(err) => {
@@ -1169,7 +1238,8 @@ pub mod responsehandlers {
                                 error_message: Some(err.description().to_string()),
                                 is_success: false,
                                 content: None,
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -1212,7 +1282,8 @@ pub mod responsehandlers {
                                     timestamp_epoch_millis: current_time_millis(),
                                     refreshed_data: sux,
                                 }),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                     Err(err) => {
@@ -1222,7 +1293,8 @@ pub mod responsehandlers {
                                 error_message: Some(err.description().to_string()),
                                 is_success: false,
                                 content: None,
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -1262,7 +1334,8 @@ pub mod responsehandlers {
                                     timestamp_epoch_millis: current_time_millis(),
                                     refreshed_data: sux,
                                 }),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                     Err(err) => {
@@ -1272,7 +1345,8 @@ pub mod responsehandlers {
                                 error_message: Some(err.description().to_string()),
                                 is_success: false,
                                 content: None,
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -1312,7 +1386,8 @@ pub mod responsehandlers {
                                     timestamp_epoch_millis: current_time_millis(),
                                     refreshed_data: sux,
                                 }),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                     Err(err) => {
@@ -1322,7 +1397,8 @@ pub mod responsehandlers {
                                 error_message: Some(err.description().to_string()),
                                 is_success: false,
                                 content: None,
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -1362,7 +1438,8 @@ pub mod responsehandlers {
                                     timestamp_epoch_millis: current_time_millis(),
                                     refreshed_data: sux,
                                 }),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                     Err(err) => {
@@ -1372,7 +1449,8 @@ pub mod responsehandlers {
                                 error_message: Some(err.description().to_string()),
                                 is_success: false,
                                 content: None,
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -1388,7 +1466,6 @@ pub mod responsehandlers {
         let datholder = req.get::<State<SharedBackend>>().unwrap();
         let mut dat = datholder.write().unwrap();
         let query_str = extract_query(req);
-
 
         match query_str {
             Some(json_query) => {
@@ -1407,7 +1484,6 @@ pub mod responsehandlers {
                     },
                 );
 
-
                 println!("Going to change user to new state: result = {:?}", result);
 
                 match result {
@@ -1421,7 +1497,8 @@ pub mod responsehandlers {
                                     timestamp_epoch_millis: current_time_millis(),
                                     refreshed_data: sux,
                                 }),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                     Err(err) => {
@@ -1431,7 +1508,8 @@ pub mod responsehandlers {
                                 error_message: Some(err.description().to_string()),
                                 is_success: false,
                                 content: None,
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -1473,7 +1551,8 @@ pub mod responsehandlers {
                                     timestamp_epoch_millis: current_time_millis(),
                                     refreshed_data: sux,
                                 }),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                     Err(err) => {
@@ -1483,7 +1562,8 @@ pub mod responsehandlers {
                                 error_message: Some(err.description().to_string()),
                                 is_success: false,
                                 content: None,
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -1526,7 +1606,8 @@ pub mod responsehandlers {
                                     timestamp_epoch_millis: current_time_millis(),
                                     refreshed_data: sux,
                                 }),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                     Err(err) => {
@@ -1536,7 +1617,8 @@ pub mod responsehandlers {
                                 error_message: Some(err.description().to_string()),
                                 is_success: false,
                                 content: None,
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -1580,7 +1662,8 @@ pub mod responsehandlers {
                                     timestamp_epoch_millis: current_time_millis(),
                                     refreshed_data: sux,
                                 }),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                     Err(err) => {
@@ -1590,7 +1673,8 @@ pub mod responsehandlers {
                                 error_message: Some(err.description().to_string()),
                                 is_success: false,
                                 content: None,
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -1631,7 +1715,8 @@ pub mod responsehandlers {
                                     timestamp_epoch_millis: current_time_millis(),
                                     refreshed_data: sux,
                                 }),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                     Err(err) => {
@@ -1641,7 +1726,8 @@ pub mod responsehandlers {
                                 error_message: Some(err.description().to_string()),
                                 is_success: false,
                                 content: None,
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -1682,7 +1768,8 @@ pub mod responsehandlers {
                                     timestamp_epoch_millis: current_time_millis(),
                                     refreshed_data: sux,
                                 }),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                     Err(err) => {
@@ -1692,7 +1779,8 @@ pub mod responsehandlers {
                                 error_message: Some(err.description().to_string()),
                                 is_success: false,
                                 content: None,
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -1728,7 +1816,8 @@ pub mod responsehandlers {
                 match result {
                     Ok(sux) => {
                         use rustix_bl::datastore::DatastoreQueries;
-                        let bill: rustix_bl::datastore::Bill = dat.datastore
+                        let bill: rustix_bl::datastore::Bill = dat
+                            .datastore
                             .get_bill(parsed_body.timestamp_from, parsed_body.timestamp_to)
                             .unwrap()
                             .clone();
@@ -1807,10 +1896,7 @@ pub mod responsehandlers {
                                 }
                                 let body_b: String = lines_b.join("\n");
 
-                                let attachments: HashMap<
-                                    String,
-                                    String,
-                                > = {
+                                let attachments: HashMap<String, String> = {
                                     let mut hm = HashMap::new();
                                     hm.insert("internal_oversight.csv".to_string(), body_b);
                                     hm.insert("sewobe_import.csv".to_string(), body_a);
@@ -1840,7 +1926,8 @@ pub mod responsehandlers {
                                     timestamp_epoch_millis: current_time_millis(),
                                     refreshed_data: sux,
                                 }),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                     Err(err) => {
@@ -1850,7 +1937,8 @@ pub mod responsehandlers {
                                 error_message: Some(err.description().to_string()),
                                 is_success: false,
                                 content: None,
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -1891,7 +1979,8 @@ pub mod responsehandlers {
                                     timestamp_epoch_millis: current_time_millis(),
                                     refreshed_data: sux,
                                 }),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                     Err(err) => {
@@ -1901,7 +1990,8 @@ pub mod responsehandlers {
                                 error_message: Some(err.description().to_string()),
                                 is_success: false,
                                 content: None,
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -1944,7 +2034,8 @@ pub mod responsehandlers {
                                     timestamp_epoch_millis: current_time_millis(),
                                     refreshed_data: sux,
                                 }),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                     Err(err) => {
@@ -1954,7 +2045,8 @@ pub mod responsehandlers {
                                 error_message: Some(err.description().to_string()),
                                 is_success: false,
                                 content: None,
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -1990,7 +2082,8 @@ pub mod responsehandlers {
                                 from: 0,
                                 to: 0,
                                 results: Vec::new(),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -2026,7 +2119,8 @@ pub mod responsehandlers {
                                 from: 0,
                                 to: 0,
                                 results: Vec::new(),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -2062,7 +2156,8 @@ pub mod responsehandlers {
                                 from: 0,
                                 to: 0,
                                 results: Vec::new(),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -2098,7 +2193,8 @@ pub mod responsehandlers {
                                 from: 0,
                                 to: 0,
                                 results: Vec::new(),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -2122,7 +2218,7 @@ pub mod responsehandlers {
             }
             Err(_) => {
                 return Ok(Response::with((
-                                             iron::status::InternalServerError,
+                    iron::status::InternalServerError,
                                              "Internal error happened"),
                 ));
             }
@@ -2155,7 +2251,8 @@ pub mod responsehandlers {
                                 from: 0,
                                 to: 0,
                                 results: Vec::new(),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -2190,7 +2287,8 @@ pub mod responsehandlers {
                                 from: 0,
                                 to: 0,
                                 results: Vec::new(),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -2226,7 +2324,8 @@ pub mod responsehandlers {
                                 from: 0,
                                 to: 0,
                                 results: Vec::new(),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -2265,7 +2364,8 @@ pub mod responsehandlers {
                                 from: 0,
                                 to: 0,
                                 results: Vec::new(),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -2302,7 +2402,8 @@ pub mod responsehandlers {
                                 from: 0,
                                 to: 0,
                                 results: Vec::new(),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -2340,7 +2441,8 @@ pub mod responsehandlers {
                                 from: 0,
                                 to: 0,
                                 results: Vec::new(),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -2376,7 +2478,8 @@ pub mod responsehandlers {
                                 from: 0,
                                 to: 0,
                                 results: Vec::new(),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -2411,7 +2514,8 @@ pub mod responsehandlers {
                                 from: 0,
                                 to: 0,
                                 results: Vec::new(),
-                            }).unwrap(),
+                            })
+                            .unwrap(),
                         )));
                     }
                 }
@@ -2559,6 +2663,51 @@ pub fn blocking_http_post_call<T: serde::ser::Serialize>(
     return Ok(s);
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct AvhMessage {
+    targetType: String,
+    targetIdentifier: String,
+    senderId: String,
+    title: String,
+    body: String,
+}
+
+pub fn inform_user(
+    cur_date: i64,
+    last_date: i64,
+    item_name: String,
+    user_sewobe_nr: Option<String>,
+    config: &ServerConfig,
+) {
+    if !config.notification_enable {
+        return;
+    }
+    if user_sewobe_nr.is_none() {
+        return;
+    }
+    if cur_date - last_date < 1000 * 60 * 60 * 24 * 7 {
+        return;
+    }
+    info!(
+        "Nachricht an {} vorbereitet",
+        user_sewobe_nr.clone().unwrap()
+    );
+    blocking_http_post_call(
+        &(config.notification_url.to_string() + "?senderSecret=" + &config.notification_api_key),
+        &AvhMessage {
+            targetType: "NR".to_string(),
+            targetIdentifier: user_sewobe_nr.clone().unwrap(),
+            senderId: config.notification_api_id.to_string(),
+            title: "Auf der Bierliste abgestrichen".to_string(),
+            body: format!("Auf der Bierliste wurde {} in deinem Namen abgesprichen. Du erhälst diese Nachricht, weil das letzte mal über eine Woche zurückliegt.", item_name),
+        },
+    ).unwrap();
+    info!(
+        "Nachricht an {} versendet",
+        user_sewobe_nr.unwrap()
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use iron;
@@ -2567,20 +2716,17 @@ mod tests {
     use manager::ParametersAll;
     use manager::*;
 
-
     use rustix_bl;
 
     use serde_json;
     use server::*;
 
-
     use std::sync::Mutex;
 
-
-    use url::form_urlencoded;
+    use configuration::ServerConfig;
     use server::responsehandlers::CreateUser;
     use server::responsehandlers::MakeSimplePurchase;
-    use configuration::ServerConfig;
+    use url::form_urlencoded;
 
     const HOST_WITHOUTPORT: &'static str = "http://localhost:";
 
@@ -2611,12 +2757,16 @@ mod tests {
             smtp_port: 0,
             use_mock_data: true,
             admin_password: "".to_string(),
+            notification_enable: false,
+            notification_url: "".to_string(),
+            notification_api_key: "".to_string(),
+            notification_api_id: "".to_string(),
         };
     }
 
     fn build_default_server<T>(function_to_fill_backend: T) -> (iron::Listening, ServerConfig)
-        where
-            T: Fn(&mut Backend) -> (),
+    where
+        T: Fn(&mut Backend) -> (),
     {
         let default_server_conf = get_server_config();
 
@@ -2636,7 +2786,8 @@ mod tests {
         let httpbody = blocking_http_get_call(&format!(
             "{}{}/index.html",
             HOST_WITHOUTPORT, config.server_port
-        )).unwrap();
+        ))
+        .unwrap();
 
         let mut server = server;
         server.close().unwrap();
@@ -2823,17 +2974,15 @@ mod tests {
         assert_eq!(parsedjson.error_message, None);
         assert!(parsedjson.content.is_some());
         let unpacked = parsedjson.content.unwrap();
-        assert!(
-            unpacked
-                .refreshed_data
-                .AllUsers
-                .as_object()
-                .unwrap()
-                .get("results")
-                .unwrap()
-                .as_array()
-                .is_some()
-        );
+        assert!(unpacked
+            .refreshed_data
+            .AllUsers
+            .as_object()
+            .unwrap()
+            .get("results")
+            .unwrap()
+            .as_array()
+            .is_some());
         assert_eq!(
             unpacked
                 .refreshed_data
@@ -2963,7 +3112,6 @@ mod tests {
 
         let query = serde_json::to_string(&state).unwrap();
 
-
         let encoded: String = form_urlencoded::Serializer::new(String::new())
             .append_pair("query", &query)
             .finish();
@@ -2972,7 +3120,6 @@ mod tests {
             "{}{}/api/purchases?{}",
             HOST_WITHOUTPORT, config.server_port, encoded
         );
-
 
         let httpbody = blocking_http_post_call(&url, &postjson).unwrap();
 

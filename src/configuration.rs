@@ -24,6 +24,10 @@ pub struct ServerConfig {
     pub smtp_port: u16,
     pub use_mock_data: bool,
     pub admin_password: String,
+    pub notification_enable: bool,
+    pub notification_url: String,
+    pub notification_api_key: String,
+    pub notification_api_id: String,
 }
 
 impl ServerConfig {
@@ -43,6 +47,10 @@ impl ServerConfig {
             smtp_port: 587,
             use_mock_data: true,
             admin_password: "".to_string(),
+            notification_enable: false,
+            notification_url: "http://localhost:1234/fcm/send-message".to_string(),
+            notification_api_key: "123".to_string(),
+            notification_api_id: "abc".to_string(),
         };
     }
 
@@ -67,6 +75,10 @@ impl ServerConfig {
             smtp_port: get_env_u16("CERVISIA_SMTP_PORT", 587),
             use_mock_data: get_env_bool("CERVISIA_USE_MOCK_DATA", Some(true)).unwrap_or(true),
             admin_password: env::var("CERVISIA_ADMIN_PASSWORD").unwrap_or("".to_string()),
+            notification_enable: env::var("CERVISIA_NOTIFICATION_URL").is_ok(),
+            notification_url: env::var("CERVISIA_NOTIFICATION_URL").unwrap_or("https://login.av-huette.de/fcm/send-message".to_string()),
+            notification_api_key: env::var("CERVISIA_NOTIFICATION_API_KEY").unwrap_or("123".to_string()),
+            notification_api_id: env::var("CERVISIA_NOTIFICATION_API_ID").unwrap_or("123".to_string()),
         };
     }
 }
@@ -119,6 +131,10 @@ impl Default for ServerConfig {
             smtp_port: 587,
             use_mock_data: true,
             admin_password: "".to_string(),
+            notification_enable: false,
+            notification_url: "http://localhost:1234/fcm/send-message".to_string(),
+            notification_api_key: "123".to_string(),
+            notification_api_id: "abc".to_string(),       
         };
     }
 }
