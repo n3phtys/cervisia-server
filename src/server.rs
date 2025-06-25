@@ -2663,6 +2663,23 @@ pub fn blocking_http_post_call<T: serde::ser::Serialize>(
     return Ok(s);
 }
 
+pub fn blocking_http_post_call_without_response<T: serde::ser::Serialize>(
+    url: &str,
+    content: &T,
+) -> Result<(), reqwest::Error> {
+    let client = reqwest::Client::new();
+    let mut res = client
+        .post(url)
+        .body(serde_json::to_string(content).unwrap())
+        .send()?;
+
+    debug!("Status: {}", res.status());
+    debug!("Headers:\n{:?}", res.headers());
+
+    debug!("\n\nDone.");
+    return Ok(());
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct AvhMessage {
     targetType: String,
