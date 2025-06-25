@@ -2692,7 +2692,7 @@ pub fn inform_user(
         "Nachricht an {} vorbereitet",
         user_sewobe_nr.clone().unwrap()
     );
-    blocking_http_post_call(
+    let _ = blocking_http_post_call(
         &(config.notification_url.to_string() + "?senderSecret=" + &config.notification_api_key),
         &AvhMessage {
             targetType: "NR".to_string(),
@@ -2701,7 +2701,7 @@ pub fn inform_user(
             title: "Auf der Bierliste abgestrichen".to_string(),
             body: format!("Auf der Bierliste wurde {} in deinem Namen abgesprichen. Du erhälst diese Nachricht, weil das letzte mal über eine Woche zurückliegt.", item_name),
         },
-    ).unwrap();
+    );
     info!(
         "Nachricht an {} versendet",
         user_sewobe_nr.unwrap()
