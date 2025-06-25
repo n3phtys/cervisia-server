@@ -2709,7 +2709,7 @@ pub fn inform_user(
         "Nachricht an {} vorbereitet",
         user_sewobe_nr.clone().unwrap()
     );
-    let _ = blocking_http_post_call(
+    let _ = blocking_http_post_call_without_response(
         &(config.notification_url.to_string() + "?senderSecret=" + &config.notification_api_key),
         &AvhMessage {
             targetType: "NR".to_string(),
